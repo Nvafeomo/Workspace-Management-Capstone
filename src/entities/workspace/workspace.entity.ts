@@ -1,7 +1,7 @@
 import { User } from '../user/user.entity';
 import { Item } from '../item/item.entity';
 
-export class Space {
+export class Workspace {
     private id: string;
     private name: string;
     private description: string;
