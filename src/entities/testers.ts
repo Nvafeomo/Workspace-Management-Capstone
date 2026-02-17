@@ -14,18 +14,26 @@ const users: User[] = [
 ];
 
 const items: Item[] = [
-  new Item("i1", "Shovel", "A sturdy garden shovel", "space-001"),
-  new Item("i2", "Rake", "Metal rake for soil", "space-001")
+  new Item("i1", "Shovel", "A sturdy garden shovel",  5),
+  new Item("i2", "Rake", "Metal rake for soil",  3)
 ];
 
 const gardenSpace = new Workspace(
   "space-001",
-  "Community Garden",
   "A shared space for growing vegetables and herbs.",
   gardenTerms,
   users,
-  items
+  items,
 );
-
+/*
 console.log(gardenSpace);
 console.log('The role of user 1 is ' + users[0]?.getRole("space-001"));
+console.log('The role of user 1 is ' + users[0]?.getRole("space-021"));
+console.log('The role of user 5 is ' + users[5]?.getRole("space-001"));
+*/
+console.log('All roles of user 1 are ' + JSON.stringify(users[0]?.getAllRoles()));
+console.log(gardenSpace.getItems());
+
+console.log(gardenSpace.getUsers()[0]?.setId("u3"));
+console.log(gardenSpace.getUsers()[0]);
+
