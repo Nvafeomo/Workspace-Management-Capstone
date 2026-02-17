@@ -2,10 +2,10 @@
 
 ## What you might need to run
 
-### install node with node -v
-### npm install if needed
-### npm install typescript if needed
-### npm install for dependencies
+### install node node -v npm -v
+### npm install 
+### npm install typescript 
+### npm install (for dependencies)
 
 ## How to run the tester
 
