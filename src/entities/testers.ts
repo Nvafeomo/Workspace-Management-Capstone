@@ -1,10 +1,10 @@
 import { Workspace } from "./workspace/workspace.entity";
 import { User } from "./user/user.entity";
-import { Item } from "./item/item.entity";
+import { Resource } from "./resource/resource.entity";
 
 const gardenTerms = {
   space: "Garden",
-  item: "Tool",
+  resource: "Tool",
   members: "Gardener"
 };
 
@@ -13,9 +13,9 @@ const users: User[] = [
   new User("u2", "Bob", {"space-001": "MEMBER"})
 ];
 
-const items: Item[] = [
-  new Item("i1", "Shovel", "A sturdy garden shovel",  5),
-  new Item("i2", "Rake", "Metal rake for soil",  3)
+const items: Resource[] = [
+  new Resource("i1", "Shovel", "A sturdy garden shovel",  5),
+  new Resource("i2", "Rake", "Metal rake for soil",  3)
 ];
 
 const gardenSpace = new Workspace(

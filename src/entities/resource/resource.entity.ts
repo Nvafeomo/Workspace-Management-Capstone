@@ -1,4 +1,4 @@
-export class Item{
+export class Resource{
     private id: string;
     private name: string;
     private description: string;
