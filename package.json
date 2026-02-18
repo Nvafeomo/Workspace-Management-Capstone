@@ -5,7 +5,9 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3"
-    
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.96.0",
+    "dotenv": "^17.3.1"
   }
-  
 }
