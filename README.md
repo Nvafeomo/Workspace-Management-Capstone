@@ -13,3 +13,8 @@
 
 ### npx tsx testers.ts
 
+## What I installed for supabase
+
+### npm install dotenv
+### npm install --save-dev @types/node
+### npm install @supabase/supabase-js
