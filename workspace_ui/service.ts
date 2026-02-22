@@ -1,7 +1,8 @@
-import { Workspace } from "./src/entities/workspace/workspace.entity";
-import { User } from "./src/entities/user/user.entity";
-import { Resource } from "./src/entities/resource/resource.entity";
-import { supabase } from './supabaseClient'
+
+import { Workspace } from "../src/entities/workspace/workspace.entity";
+import { User } from "../src/entities/user/user.entity";
+import { Resource } from "../src/entities/resource/resource.entity";
+import { supabase } from './src/supabaseClient'
 
 export async function createWorkspace(name: string, description: string) {
   const newWorkspace = new Workspace(name, description);
@@ -24,9 +25,13 @@ export async function createWorkspace(name: string, description: string) {
     return data;
   }
 }
-
+/*
 (async () => {
   const result = await createWorkspace('Sample', 'Garden');
   console.log('Workspace added:', result);
 })();
+<<<<<<< HEAD:service.ts
 
+=======
+*/
+>>>>>>> 25f737a9ae07b148677ba9078204828cc467f36d:workspace_ui/service.ts
