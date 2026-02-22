@@ -9,9 +9,14 @@
 
 ## How to run the tester
 
-## Go to entities directory (cd ./(path))
+Run from the **src** folder (not the entities folder):
 
-### npx tsx testers.ts
+```
+cd src
+npx tsx testers.ts
+```
+
+If `.env.local` is in a different location, update the path in `supabaseClient.ts` to point to it.
 
 ## What I installed for supabase
 

@@ -102,4 +102,4 @@ async function testWorkspaces() {
     }
 }
 testWorkspaces()
-//testUsers()
+testUsers()
