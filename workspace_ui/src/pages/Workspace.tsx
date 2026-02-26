@@ -4,11 +4,11 @@ import { workspaceApi } from '../api/workspaceApi';
 import { resourceApi } from '../api/resourceApi';
 import { borrowApi } from '../api/borrowApi';
 import { Workspace, Resource } from '../types';
-import { 
-  ArrowLeft, 
-  Box, 
-  CheckCircle2, 
-  Clock, 
+import {
+  ArrowLeft,
+  Box,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   Loader2,
   HandHelping,
@@ -43,16 +43,28 @@ export const WorkspacePage = () => {
   const [loading, setLoading] = useState(true);
   const [borrowingId, setBorrowingId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newResource, setNewResource] = useState({ 
-    name: '', 
-    description: '', 
-    reqApprovers: 0  
+  const [newResource, setNewResource] = useState({
+    name: '',
+    description: '',
+    reqApprovers: 0
   });
   const [creating, setCreating] = useState(false);
 
+  //filter state
+  const [filter, setFilter] = useState<'ALL' | 'AVAILABLE' | 'BORROWED'>('ALL');
+
+  //get filtered resources
+  const filteredResources = resources.filter(res => {
+    if (filter === 'ALL') return true;
+    return res.status === filter;
+  });
+
+
+  //load on render, gets workspace id and the loads workspace based on id, currently loads all resources from the workspace on render
+  //loads when workspace id changes
   useEffect(() => {
     if (!id) return;
-    
+
     Promise.all([
       workspaceApi.getById(id),
       resourceApi.getByWorkspace(id)
@@ -63,12 +75,15 @@ export const WorkspacePage = () => {
     });
   }, [id]);
 
+  //borrow function, calls createRequest from borrowApi
+  //currently hardcoded user id of borrow request to 00c02d78-0cfb-4175-849d-5a0d7286cca7 because login not implemented yet
+  //when login implemented we should also reenable rls
+  //resource status updated to requested after this function is called
   const handleQuickBorrow = async (resourceId: string) => {
     setBorrowingId(resourceId);
     try {
       await borrowApi.createRequest(resourceId, '00c02d78-0cfb-4175-849d-5a0d7286cca7');
-      // Update local state to show requested
-      setResources(prev => prev.map(res => 
+      setResources(prev => prev.map(res =>
         res.id === resourceId ? { ...res, status: 'REQUESTED' } : res
       ));
       alert('Borrow request submitted successfully!');
@@ -79,8 +94,9 @@ export const WorkspacePage = () => {
     }
   };
 
+  //add resource function
+  //calls create from resourceApi
   const handleAddResource = async (e: React.FormEvent) => {
-    console.log('handleAddResource called');
     e.preventDefault();
     if (!id) return;
     setCreating(true);
@@ -133,24 +149,37 @@ export const WorkspacePage = () => {
             <p className="text-slate-500 mt-2 text-lg max-w-2xl">{workspace.description}</p>
           </div>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
-        >
-          <Plus size={20} />
-          Add Resource
-        </button>
+        <div className="flex items-center gap-4">
+          {/* filter dropdown , filters resources by availability status */}
+          <select
+            value={filter}
+            onChange={e => setFilter(e.target.value as 'ALL' | 'AVAILABLE' | 'BORROWED')}
+            className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+          >
+            <option value="ALL">All</option>
+            <option value="AVAILABLE">Available</option>
+            <option value="BORROWED">Borrowed</option>
+          </select>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+          >
+            <Plus size={20} />
+            Add Resource
+          </button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {resources.map((res, index) => (
+        {/* map through filtered resources and render each as a card */}
+        {filteredResources.map((res, index) => (
           <motion.div
             key={res.id}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.05 }}
           >
-            <div 
+            <div
               className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
             >
               <div className="p-6 space-y-4">
@@ -173,13 +202,12 @@ export const WorkspacePage = () => {
                 <button
                   onClick={() => handleQuickBorrow(res.id)}
                   disabled={res.status !== 'AVAILABLE' || borrowingId === res.id}
-                  className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                    res.status === 'AVAILABLE'
+                  className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${res.status === 'AVAILABLE'
                       ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100 active:scale-[0.98]'
                       : res.status === 'REQUESTED'
-                      ? 'bg-indigo-50 text-indigo-400 cursor-not-allowed'
-                      : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  }`}
+                        ? 'bg-indigo-50 text-indigo-400 cursor-not-allowed'
+                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    }`}
                 >
                   {borrowingId === res.id ? (
                     <Loader2 className="animate-spin" size={18} />

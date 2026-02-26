@@ -1,7 +1,12 @@
+//functions for resources
+
 import { Resource } from '../types';
 import { supabase } from '../supabaseClient';
 
 export const resourceApi = {
+  //get resource function, get resource by workspace id
+  //from workspace_resource table, select all resource where workspace_id matches given workspace id
+  //workspace_resource table contains workspace and resource id
   getByWorkspace: async (workspaceId: string): Promise<Resource[]> => {
     const { data, error } = await supabase
       .from('workspace_resource')
@@ -12,6 +17,8 @@ export const resourceApi = {
     return data.map((row: any) => row.resource) as Resource[];
   },
 
+  //get resource by id
+  //from resource table, select resource where id matches give resource id
   getById: async (id: string): Promise<Resource> => {
     const { data, error } = await supabase
       .from('resource')
@@ -23,11 +30,10 @@ export const resourceApi = {
     return data as Resource;
   },
 
+  //create resource function
+  //add to resource table
+  //inserts into resource table first, then links to workspace via workspace_resource
   create: async (resource: Omit<Resource, 'id'>, workspaceId: string): Promise<Resource> => {
-
-    console.log('Creating resource:', resource);
-
-    // First insert the resource
     const { data, error } = await supabase
       .from('resource')
       .insert([{
@@ -39,22 +45,19 @@ export const resourceApi = {
       .select()
       .single();
 
-    console.log('Resource insert result:', data, error);
     if (error) throw error;
 
-    // Then link it to the workspace
-    console.log('Linking to workspace:', workspaceId, data.id);
     const { error: linkError } = await supabase
       .from('workspace_resource')
       .insert([{ workspace_id: workspaceId, resource_id: data.id }]);
 
-    console.log('Link result:', linkError);
     if (linkError) throw linkError;
 
     return data as Resource;
   },
 
-
+  //update resource status
+  //from resource table update status based on resource id
   updateStatus: async (id: string, status: Resource['status']): Promise<Resource> => {
     const { data, error } = await supabase
       .from('resource')

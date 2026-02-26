@@ -15,7 +15,7 @@ export async function createWorkspace(name: string, description: string) {
         description: newWorkspace.description
       }
     ])
-    .select(); // returns the inserted row(s)
+    .select(); 
 
   if (error) {
     console.error('Insert Error:', error);

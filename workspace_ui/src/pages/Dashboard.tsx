@@ -13,6 +13,7 @@ export const Dashboard = () => {
   const [newWorkspace, setNewWorkspace] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
 
+  //load on render, currently loads all workspaces on render, only runs once when component first mounts
   useEffect(() => {
     workspaceApi.getAll().then(data => {
       setWorkspaces(data);
@@ -20,10 +21,12 @@ export const Dashboard = () => {
     });
   }, []);
 
+  //create workspace function
   const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreating(true);
     try {
+      //call create workspace function from workspace.api
       const created = await workspaceApi.create(newWorkspace);
       setWorkspaces(prev => [...prev, created]);
       setIsModalOpen(false);
