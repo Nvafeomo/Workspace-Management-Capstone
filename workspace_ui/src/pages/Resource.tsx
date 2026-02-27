@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { resourceApi } from '../api/resourceApi';
 import { borrowApi } from '../api/borrowApi';
 import { Resource } from '../types';
+import { supabase } from '../supabaseClient';
 import { 
   ArrowLeft, 
   ShieldCheck, 
@@ -33,9 +34,37 @@ export const ResourcePage = () => {
   const handleBorrow = async () => {
     if (!resource) return;
     setRequesting(true);
+
     try {
-      await borrowApi.createRequest(resource.id, 'current-user-id');
+      // pull current user data
+      //const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      /*
+      HARDCODED FOR TESTING
+
+
+      HARDCODED FOR TESTING
+       */
+      const debugUserId = '07c3bcd0-bbd5-4481-a788-462410dc7411';
+
+
+      /*
+      //check if user is logged in
+      if (authError || !user) {
+        alert("You must be logged in to borrow resources.");
+        return;
+      }
+       */
+
+
+      //create request to borrow in the database
+      await borrowApi.createRequest(resource.id, debugUserId);
+
       setSuccess(true);
+
+      //update local ui state
+      setResource({ ...resource, status: 'REQUESTED' });
+
       setTimeout(() => {
         navigate('/');
       }, 3000);

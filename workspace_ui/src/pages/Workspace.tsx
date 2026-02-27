@@ -76,13 +76,13 @@ export const WorkspacePage = () => {
   }, [id]);
 
   //borrow function, calls createRequest from borrowApi
-  //currently hardcoded user id of borrow request to 00c02d78-0cfb-4175-849d-5a0d7286cca7 because login not implemented yet
+  //currently hardcoded user id of borrow request to '07c3bcd0-bbd5-4481-a788-462410dc7411' because login not implemented yet
   //when login implemented we should also reenable rls
   //resource status updated to requested after this function is called
   const handleQuickBorrow = async (resourceId: string) => {
     setBorrowingId(resourceId);
     try {
-      await borrowApi.createRequest(resourceId, '00c02d78-0cfb-4175-849d-5a0d7286cca7');
+      await borrowApi.createRequest(resourceId, '07c3bcd0-bbd5-4481-a788-462410dc7411');
       setResources(prev => prev.map(res =>
         res.id === resourceId ? { ...res, status: 'REQUESTED' } : res
       ));
