@@ -4,6 +4,46 @@ import { Resource } from '../types';
 import { supabase } from '../supabaseClient';
 
 export const resourceApi = {
+
+  // NEW: Robust Delete Function
+  // Deletes all dependencies first to prevent foreign key errors
+  delete: async (id: string): Promise<void> => {
+
+    // 1. DELETE REQUESTS
+    // Remove any borrow requests linked to this resource
+    const { error: reqError } = await supabase
+        .from('borrow_request')
+        .delete()
+        .eq('resource_id', id);
+
+    if (reqError) {
+      console.error("Failed to clean up requests:", reqError);
+      throw reqError;
+    }
+
+    // 2. DELETE WORKSPACE LINKS
+    // Remove the link between the resource and the workspace
+    const { error: linkError } = await supabase
+        .from('workspace_resource')
+        .delete()
+        .eq('resource_id', id);
+
+    if (linkError) {
+      console.error("Failed to clean up workspace links:", linkError);
+      throw linkError;
+    }
+
+    // 3. DELETE THE RESOURCE (The "Parent")
+    // Finally, safe to delete the resource itself
+    const { error: resError } = await supabase
+        .from('resource')
+        .delete()
+        .eq('id', id);
+
+    if (resError) throw resError;
+  },
+
+
   //get resource function, get resource by workspace id
   //from workspace_resource table, select all resource where workspace_id matches given workspace id
   //workspace_resource table contains workspace and resource id

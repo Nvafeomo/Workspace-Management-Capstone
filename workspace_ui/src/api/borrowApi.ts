@@ -7,6 +7,11 @@ export const borrowApi = {
   //create borrow request function
   //uses borrow_request table, returns request information which is unused as of now but will be used for audit log later
   createRequest: async (resourceId: string, userId: string, reqApprovers: number): Promise<BorrowRequest> => {
+
+    // DEBUGGING STEP: See what the API actually receives
+    console.log("API RECEIVED reqApprovers:", reqApprovers);
+    console.log("Type of reqApprovers:", typeof reqApprovers);
+
     // 1. determine the initial state of the request record
     // If 0 approvals are needed, we mark it 'APPROVED' immediately so it skips the Approvals page
     const initialStatus = reqApprovers > 0 ? 'PENDING' : 'APPROVED';

@@ -32,7 +32,15 @@ export const ResourcePage = () => {
   }, [id]);
 
   const handleBorrow = async () => {
+    alert("DEBUG: handleBorrow started!");
+    console.log("DEBUG: resource.reqApprovers value is:", resource.reqApprovers);
+    console.log("DEBUG: resource object structure:", resource);
+
     if (!resource) return;
+
+    // DEBUGGING STEP: Check if the value exists here
+
+
     setRequesting(true);
 
     try {
@@ -56,9 +64,11 @@ export const ResourcePage = () => {
       }
        */
 
-
+      alert("DEBUG: handleBorrow started!");
+      console.log("DEBUG: resource.reqApprovers value is:", resource.reqApprovers);
+      console.log("DEBUG: resource object structure:", resource);
       //create request to borrow in the database
-      await borrowApi.createRequest(resource.id, debugUserId);
+      await borrowApi.createRequest(resource.id, debugUserId, resource.reqApprovers);
 
       setSuccess(true);
 
