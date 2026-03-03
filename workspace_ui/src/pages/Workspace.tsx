@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { workspaceApi } from '../api/workspaceApi';
 import { resourceApi } from '../api/resourceApi';
 import { borrowApi } from '../api/borrowApi';
@@ -49,24 +50,29 @@ export const WorkspacePage = () => {
     reqApprovers: 0  
   });
   const [creating, setCreating] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!id) return;
-    
+
     Promise.all([
       workspaceApi.getById(id),
-      resourceApi.getByWorkspace(id)
-    ]).then(([wsData, resData]) => {
+      resourceApi.getByWorkspace(id),
+      user?.id ? workspaceApi.getUserRole(id, user.id) : Promise.resolve(null),
+    ]).then(([wsData, resData, role]) => {
       setWorkspace(wsData || null);
       setResources(resData);
+      setUserRole(role ?? null);
       setLoading(false);
     });
-  }, [id]);
-
+  }, [id, user?.id]);
+  
   const handleQuickBorrow = async (resourceId: string) => {
+    if (!user?.id) return;
     setBorrowingId(resourceId);
     try {
-      await borrowApi.createRequest(resourceId, '00c02d78-0cfb-4175-849d-5a0d7286cca7');
+      await borrowApi.createRequest(resourceId, user.id);
       // Update local state to show requested
       setResources(prev => prev.map(res => 
         res.id === resourceId ? { ...res, status: 'REQUESTED' } : res
@@ -80,7 +86,6 @@ export const WorkspacePage = () => {
   };
 
   const handleAddResource = async (e: React.FormEvent) => {
-    console.log('handleAddResource called');
     e.preventDefault();
     if (!id) return;
     setCreating(true);
@@ -117,9 +122,6 @@ export const WorkspacePage = () => {
     );
   }
 
-  console.log('isModalOpen:', isModalOpen);
-
-
   return (
     <div className="space-y-8">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -129,7 +131,14 @@ export const WorkspacePage = () => {
             Back to Dashboard
           </Link>
           <div>
-            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">{workspace.name}</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">{workspace.name}</h1>
+              {userRole === 'ADMIN' && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                  Admin
+                </span>
+              )}
+            </div>
             <p className="text-slate-500 mt-2 text-lg max-w-2xl">{workspace.description}</p>
           </div>
         </div>
@@ -239,7 +248,6 @@ export const WorkspacePage = () => {
           </div>
           <button
             type="submit"
-            onClick={() => console.log('button clicked')}
             disabled={creating}
             className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >

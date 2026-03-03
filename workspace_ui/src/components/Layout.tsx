@@ -1,14 +1,13 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Box, 
   CheckSquare, 
-  QrCode, 
   LogOut,
   User as UserIcon,
-  Settings
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -41,6 +40,13 @@ const SidebarItem = ({ to, icon: Icon, label, active }: SidebarItemProps) => (
 
 export const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login', { replace: true });
+  };
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -74,7 +80,10 @@ export const Sidebar = () => {
       </nav>
 
       <div className="p-4 border-t border-slate-100 space-y-1">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors group">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors group"
+        >
           <LogOut size={20} className="text-rose-400 group-hover:text-rose-600" />
           <span className="font-medium">Logout</span>
         </button>
@@ -84,6 +93,8 @@ export const Sidebar = () => {
 };
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
+  const { displayName, user } = useAuth();
+
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
       <Sidebar />
@@ -97,7 +108,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
                 <UserIcon size={14} />
               </div>
-              <span className="text-sm font-medium text-slate-700">Admin User</span>
+              <span className="text-sm font-medium text-slate-700">
+                {displayName ?? user?.email ?? 'User'}
+              </span>
             </div>
           </div>
         </header>

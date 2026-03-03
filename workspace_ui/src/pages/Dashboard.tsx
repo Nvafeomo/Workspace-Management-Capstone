@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { workspaceApi } from '../api/workspaceApi';
 import { Workspace } from '../types';
-import { ChevronRight, Layers, Loader2, Plus } from 'lucide-react';
+import { ChevronRight, Loader2, Plus } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
 
 export const Dashboard = () => {
+  const { user } = useAuth();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +17,9 @@ export const Dashboard = () => {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    workspaceApi.getAll()
+    if (!user?.id) return;
+
+    workspaceApi.getAll(user.id)
       .then(data => {
         setWorkspaces(data);
         setError(null);
@@ -25,13 +29,14 @@ export const Dashboard = () => {
         setError(err?.message ?? 'Failed to load workspaces. Check your Supabase connection and .env.local.');
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [user?.id]);
 
   const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) return;
     setCreating(true);
     try {
-      const created = await workspaceApi.create(newWorkspace);
+      const created = await workspaceApi.create(newWorkspace, user.id);
       setWorkspaces(prev => [...prev, created]);
       setIsModalOpen(false);
       setNewWorkspace({ name: '', description: '' });
