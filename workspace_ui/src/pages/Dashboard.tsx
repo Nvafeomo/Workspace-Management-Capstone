@@ -16,6 +16,7 @@ export const Dashboard = () => {
   const [newWorkspace, setNewWorkspace] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
 
+  //load on render, currently loads all workspaces on render, only runs once when component first mounts
   useEffect(() => {
     if (!user?.id) return;
 
@@ -31,6 +32,7 @@ export const Dashboard = () => {
       .finally(() => setLoading(false));
   }, [user?.id]);
 
+  //create workspace function
   const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;

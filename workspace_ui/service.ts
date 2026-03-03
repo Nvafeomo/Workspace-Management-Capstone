@@ -15,7 +15,7 @@ export async function createWorkspace(name: string, description: string) {
         description: newWorkspace.description
       }
     ])
-    .select(); // returns the inserted row(s)
+    .select(); 
 
   if (error) {
     console.error('Insert Error:', error);
@@ -30,8 +30,4 @@ export async function createWorkspace(name: string, description: string) {
   const result = await createWorkspace('Sample', 'Garden');
   console.log('Workspace added:', result);
 })();
-<<<<<<< HEAD:service.ts
-
-=======
 */
->>>>>>> 25f737a9ae07b148677ba9078204828cc467f36d:workspace_ui/service.ts

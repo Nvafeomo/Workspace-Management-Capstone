@@ -59,6 +59,7 @@ export const workspaceApi = {
     return { ...created, resourceCount: created.resourceCount ?? 0 };
   },
 
+  //get workspace by id function, used so that we can click on a workspace, get the id, then display that workspace on the front end
   async getById(id: string): Promise<Workspace> {
     const { data, error } = await supabase
       .from('workspaces')

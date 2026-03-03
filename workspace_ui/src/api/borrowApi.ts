@@ -1,30 +1,48 @@
+//borrow functions
+
 import { BorrowRequest } from '../types';
 import { supabase } from '../supabaseClient';
 
 export const borrowApi = {
-  createRequest: async (resourceId: string, userId: string): Promise<BorrowRequest> => {
-    // In a real app, we'd fetch the resource name and user name first or use a RPC
+  //create borrow request function
+  //uses borrow_request table, returns request information which is unused as of now but will be used for audit log later
+  createRequest: async (resourceId: string, userId: string, reqApprovers: number): Promise<BorrowRequest> => {
+
+    // DEBUGGING STEP: See what the API actually receives
+    console.log("API RECEIVED reqApprovers:", reqApprovers);
+    console.log("Type of reqApprovers:", typeof reqApprovers);
+
+    // 1. determine the initial state of the request record
+    // If 0 approvals are needed, we mark it 'APPROVED' immediately so it skips the Approvals page
+    const initialStatus = reqApprovers > 0 ? 'PENDING' : 'APPROVED';
+
+    // 2. determine the state the resource should transition to
+    // If it needs approval, it sits in 'REQUESTED'. If it's auto-approved, it's now 'BORROWED'
+    const resourceStatus = reqApprovers > 0 ? 'REQUESTED' : 'BORROWED';
+
     const { data: created, error } = await supabase
       .from('borrow_request')
       .insert([{ 
         resource_id: resourceId, 
         user_id: userId, 
-        status: 'PENDING'
+        status: initialStatus // Immediately approves if 0 required approvals
       }])
       .select()
       .single();
 
     if (error) throw error;
 
-    // Update resource status to REQUESTED
     await supabase
       .from('resource')
-      .update({ status: 'REQUESTED' })
+      .update({ status: resourceStatus })
       .eq('id', resourceId);
 
     return created as BorrowRequest;
   },
 
+  //gets borrow requests so they can be shown on the front end
+  //uses borrow_request table
+  // joins resource and users tables to get names for display on approvals page
   getApprovals: async (): Promise<BorrowRequest[]> => {
     const { data, error } = await supabase
       .from('borrow_request')
@@ -35,7 +53,8 @@ export const borrowApi = {
     return data as BorrowRequest[];
   },
 
-
+  //update status of borrow request
+  //uses borrow_request table
   updateStatus: async (id: string, status: 'APPROVED' | 'REJECTED'): Promise<BorrowRequest> => {
     const { data: updated, error } = await supabase
       .from('borrow_request')
@@ -46,7 +65,7 @@ export const borrowApi = {
 
     if (error) throw error;
 
-    // Update resource status based on approval/rejection
+    // if approved set resource to BORROWED, if rejected return it to AVAILABLE
     const resourceStatus = status === 'APPROVED' ? 'BORROWED' : 'AVAILABLE';
     await supabase
       .from('resource')
@@ -55,4 +74,6 @@ export const borrowApi = {
 
     return updated as BorrowRequest;
   }
+
+
 };
