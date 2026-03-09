@@ -8,22 +8,32 @@ import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
 
 export const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, globalRole  } = useAuth();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
+  const [memberships, setMemberships] = useState<Record<string, string | null>>({}); //membership state
 
-  //load on render, currently loads all workspaces on render, only runs once when component first mounts
+
+  //load on render, currently loads all workspaces on render, runs when user?.id changes
   useEffect(() => {
     if (!user?.id) return;
 
-    workspaceApi.getAll(user.id)
-      .then(data => {
+    workspaceApi.getAll()
+      .then(async data => {
         setWorkspaces(data);
         setError(null);
+        //get membership status for workspaces
+        if (user?.id) {
+          const membershipMap: Record<string, string | null> = {};
+          await Promise.all(data.map(async ws => {
+            membershipMap[ws.id] = await workspaceApi.getMembership(ws.id, user.id);
+          }));
+          setMemberships(membershipMap);
+        }
       })
       .catch(err => {
         console.error('Failed to load workspaces:', err);
@@ -40,6 +50,8 @@ export const Dashboard = () => {
     try {
       const created = await workspaceApi.create(newWorkspace, user.id);
       setWorkspaces(prev => [...prev, created]);
+      // update memberships state so new workspace shows as approved
+      setMemberships(prev => ({ ...prev, [created.id]: 'APPROVED' }));
       setIsModalOpen(false);
       setNewWorkspace({ name: '', description: '' });
     } catch (error) {
@@ -48,6 +60,19 @@ export const Dashboard = () => {
       setCreating(false);
     }
   };
+
+  //function for handling user joining a workspace
+  const handleRequestJoin = async (workspaceId: string) => {
+    if (!user?.id) return;
+    try {
+      await workspaceApi.requestJoin(workspaceId, user.id);
+      setMemberships(prev => ({ ...prev, [workspaceId]: 'PENDING' }));
+    } catch (error) {
+      console.error(error);
+      alert('Failed to send join request.');
+    }
+  };
+
 
   if (loading) {
     return (
@@ -83,7 +108,6 @@ export const Dashboard = () => {
           Create Workspace
         </button>
       </header>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {workspaces.map((ws, index) => (
           <motion.div
@@ -92,26 +116,45 @@ export const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <Link 
-              to={`/workspace/${ws.id}`}
-              className="group block bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300"
-            >
+            <div className="block bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300">
               <div className="p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{ws.name}</h3>
+                    <h3 className="text-xl font-bold text-slate-900">{ws.name}</h3>
                     <p className="text-slate-500 mt-2 line-clamp-2 text-sm leading-relaxed">{ws.description}</p>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
+                  <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
                     <ChevronRight size={20} />
                   </div>
                 </div>
+                <div className="mt-4">
+                  {/* Shows different buttons based on membership status:
+                    - APPROVED/APPROVER_PENDING: Enter Workspace button
+                    - PENDING: disabled Request Pending button
+                    - No membership: Request to Join button
+                    - MASTER account always sees Enter Workspace */}
+                  {memberships[ws.id] === 'APPROVED' || memberships[ws.id] === 'APPROVER_PENDING' || globalRole === 'MASTER' ? (
+                    <Link to={`/workspace/${ws.id}`} className="w-full block text-center py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">
+                      Enter Workspace
+                    </Link>
+                  ) : memberships[ws.id] === 'PENDING' ? (
+                    <button disabled className="w-full py-2 bg-slate-100 text-slate-400 rounded-xl font-bold cursor-not-allowed">
+                      Request Pending
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleRequestJoin(ws.id)}
+                      className="w-full py-2 bg-white text-indigo-600 border border-indigo-300 rounded-xl font-bold hover:bg-indigo-50 transition-all"
+                    >
+                      Request to Join
+                    </button>
+                  )}
+                </div>
               </div>
-            </Link>
+            </div>
           </motion.div>
         ))}
       </div>
-
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

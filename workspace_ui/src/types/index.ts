@@ -32,6 +32,9 @@ export interface BorrowRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RETURNED';
   request_date: string;
   return_date?: string;
-  resource?: { name: string };
+  resource?: { name: string; 
+    workspace_id?: string;
+    workspace_resource?: { workspace_id: string }[];
+ };
   users?: { name: string };
 }

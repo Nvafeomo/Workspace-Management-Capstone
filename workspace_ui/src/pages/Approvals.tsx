@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { borrowApi } from '../api/borrowApi';
+import { workspaceApi } from '../api/workspaceApi';
+import { useAuth } from '../contexts/AuthContext';
 import { BorrowRequest } from '../types';
 import { 
   Check, 
@@ -13,16 +15,52 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export const Approvals = () => {
+  const { user, globalRole } = useAuth();
   const [requests, setRequests] = useState<BorrowRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
-    borrowApi.getApprovals().then(data => {
-      setRequests(data.filter(r => r.status === 'PENDING'));
-      setLoading(false);
-    });
-  }, []);
+    if (!user?.id) return;
+
+    const loadApprovals = async () => {
+      try {
+        // master sees all pending requests
+        if (globalRole === 'MASTER') {
+          const data = await borrowApi.getApprovals();
+          setRequests(data.filter(r => r.status === 'PENDING'));
+          setLoading(false);
+          return;
+        }
+
+        // admins and approvers only see requests for their workspaces
+        const approverWorkspaces = await workspaceApi.getApproverWorkspaces(user.id);
+        console.log('approver workspaces:', approverWorkspaces);
+
+        if (approverWorkspaces.length === 0) {
+          setRequests([]);
+          setLoading(false);
+          return;
+        }
+
+        const data = await borrowApi.getApprovals();
+        console.log('all approvals:', data);
+
+        // filter to only show requests for workspaces the user is admin/approver of
+        const filtered = data.filter(r => {
+          const workspaceIds = r.resource?.workspace_resource?.map((wr: any) => wr.workspace_id) ?? [];
+          return workspaceIds.some((wsId: string) => approverWorkspaces.includes(wsId));
+        });
+        setRequests(filtered.filter(r => r.status === 'PENDING'));
+        setLoading(false);
+      } catch (error) {
+        console.error('loadApprovals error:', error);
+        setLoading(false);
+      }
+    };
+
+    loadApprovals();
+  }, [user?.id, globalRole]);
 
   const handleAction = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     setProcessingId(id);

@@ -13,7 +13,8 @@ import {
   Loader2,
   HandHelping,
   Plus,
-  Trash2 // Imported for the delete button
+  Trash2, // Imported for the delete button
+  Users
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
@@ -44,6 +45,9 @@ export const WorkspacePage = () => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [borrowingId, setBorrowingId] = useState<string | null>(null);
+  const [memberStatus, setMemberStatus] = useState<string | null>(null);
+
+
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,24 +57,24 @@ export const WorkspacePage = () => {
     reqApprovers: 0
   });
   const [creating, setCreating] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null); //userRole state
+  const { user, globalRole  } = useAuth();
   // Filter State
   const [filter, setFilter] = useState<'ALL' | 'AVAILABLE' | 'BORROWED'>('ALL');
 
   // Load Workspace Data
   useEffect(() => {
     if (!id) return;
-
-
     Promise.all([
       workspaceApi.getById(id),
       resourceApi.getByWorkspace(id),
       user?.id ? workspaceApi.getUserRole(id, user.id) : Promise.resolve(null),
-    ]).then(([wsData, resData, role]) => {
+      user?.id ? workspaceApi.getMembership(id, user.id) : Promise.resolve(null),
+    ]).then(([wsData, resData, role, membership]) => {
       setWorkspace(wsData || null);
       setResources(resData);
       setUserRole(role ?? null);
+      setMemberStatus(membership);
       setLoading(false);
     });
   }, [id, user?.id]);
@@ -162,6 +166,20 @@ export const WorkspacePage = () => {
     );
   }
 
+  //handle the request to become approver
+  const handleRequestApprover = async () => {
+    if (!user?.id || !id) return;
+    try {
+      await workspaceApi.requestApprover(id, user.id);
+      setMemberStatus('APPROVER_PENDING');
+      alert('Approver request submitted!');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to submit approver request.');
+    }
+  };
+
+
   if (!workspace) {
     return (
         <div className="text-center py-20">
@@ -183,17 +201,26 @@ export const WorkspacePage = () => {
             </Link>
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">{workspace.name}</h1>
-              {userRole === 'ADMIN' && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
-                  Admin
-                </span>
-              )} 
+                <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">{workspace.name}</h1>
+                {userRole === 'ADMIN' && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                    Admin
+                  </span>
+                )}
+                {/* Manage members, see list of workspace members and requests to join workspaces, can only see button if admin   */}
+                {(userRole === 'ADMIN' || globalRole === 'MASTER') && (
+                  <Link
+                    to={`/workspace/${id}/manage`}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition-all"
+                  >
+                    <Users size={16} />
+                    Manage Members
+                  </Link>
+                )}
               </div>
               <p className="text-slate-500 mt-2 text-lg max-w-2xl">{workspace.description}</p>
             </div>
           </div>
-
           {/* Actions: Filter & Add Button */}
           <div className="flex items-center gap-4">
             <select
@@ -205,6 +232,21 @@ export const WorkspacePage = () => {
               <option value="AVAILABLE">Available</option>
               <option value="BORROWED">Borrowed</option>
             </select>
+            {memberStatus === 'APPROVED' && userRole === 'MEMBER' && (
+              <button
+                onClick={handleRequestApprover}
+                className="px-4 py-3 bg-white text-indigo-600 border border-indigo-300 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-all"
+              >
+                Request Approver Role
+              </button>
+            )}
+            {memberStatus === 'APPROVER_PENDING' && (
+              <button disabled className="px-4 py-3 bg-slate-100 text-slate-400 rounded-xl font-bold text-sm cursor-not-allowed">
+                Approver Request Pending
+              </button>
+            )}
+            {console.log('render check - userRole:', userRole, 'globalRole:', globalRole)}
+            {(userRole === 'ADMIN' || globalRole  === 'MASTER') && (
             <button
                 onClick={() => setIsModalOpen(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
@@ -212,6 +254,7 @@ export const WorkspacePage = () => {
               <Plus size={20} />
               Add Resource
             </button>
+            )}
           </div>
         </header>
 
@@ -235,6 +278,8 @@ export const WorkspacePage = () => {
                       </div>
 
                       {/* NEW DELETE BUTTON */}
+                      {/* Only admin and master sees delete button */}
+                      {(userRole === 'ADMIN' || globalRole  === 'MASTER')&& (
                       <button
                           onClick={(e) => {
                             e.stopPropagation(); // Prevents checking item details when deleting
@@ -245,6 +290,7 @@ export const WorkspacePage = () => {
                       >
                         <Trash2 size={18} />
                       </button>
+                      )}
                     </div>
 
                     {/* Status Badges */}

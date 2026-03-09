@@ -7,6 +7,9 @@ import { WorkspacePage } from './pages/Workspace';
 import { Approvals } from './pages/Approvals';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
+import {ManageWorkspace} from './pages/ManageWorkspace';
+import { MyResources } from './pages/MyResources';
+
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -41,7 +44,9 @@ export default function App() {
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/workspace/:id" element={<WorkspacePage />} />
+                    <Route path="/workspace/:id/manage" element={<ManageWorkspace />} />
                     <Route path="/approvals" element={<Approvals />} />
+                    <Route path="/my-resources" element={<MyResources />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>

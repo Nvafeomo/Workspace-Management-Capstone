@@ -44,9 +44,7 @@ export const resourceApi = {
   },
 
 
-  //get resource function, get resource by workspace id
-  //from workspace_resource table, select all resource where workspace_id matches given workspace id
-  //workspace_resource table contains workspace and resource id
+ // get all resources belonging to a workspace
   getByWorkspace: async (workspaceId: string): Promise<Resource[]> => {
     const { data, error } = await supabase
       .from('workspace_resource')
@@ -85,13 +83,19 @@ export const resourceApi = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('resource insert error:', error);
+      throw error;
+    }
 
     const { error: linkError } = await supabase
       .from('workspace_resource')
       .insert([{ workspace_id: workspaceId, resource_id: data.id }]);
 
-    if (linkError) throw linkError;
+    if (linkError) {
+      console.error('workspace_resource insert error:', linkError);
+      throw linkError;
+    }
 
     return data as Resource;
   },

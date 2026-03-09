@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -6,10 +6,14 @@ import {
   CheckSquare, 
   LogOut,
   User as UserIcon,
+  Package,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { workspaceApi } from '../api/workspaceApi';
+
+
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -41,7 +45,17 @@ const SidebarItem = ({ to, icon: Icon, label, active }: SidebarItemProps) => (
 export const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, globalRole, user   } = useAuth();
+  // tracks if the user is an admin or approver in any workspace, used to show/hide the Approvals tab
+  const [isApprover, setIsApprover] = useState(false); 
+  
+  useEffect(() => {
+    if (!user?.id) return;
+    workspaceApi.getApproverWorkspaces(user.id).then(workspaces => {
+      setIsApprover(workspaces.length > 0);
+    });
+  }, [user?.id, location.pathname]);
+
 
   const handleLogout = async () => {
     await signOut();
@@ -50,7 +64,9 @@ export const Sidebar = () => {
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/approvals', icon: CheckSquare, label: 'Approvals' },
+    //only admins get to see approvals page in sidebar
+    ...(globalRole === 'ADMIN' || globalRole === 'MASTER' || isApprover ? [{ to: '/approvals', icon: CheckSquare, label: 'Approvals' }] : []),
+    { to: '/my-resources', icon: Package, label: 'My Resources' },
   ];
 
   return (

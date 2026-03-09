@@ -18,6 +18,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   /** Display name from users table or metadata (first_name + last_name) */
   displayName: string | null;
+  globalRole: string | null; // user's global role from the users table, used to grant master account app-wide permissions
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +28,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [globalRole, setGlobalRole] = useState<string | null>(null);
+
 
   useEffect(() => {
     // 1. Get initial session (e.g. on page load / refresh)
@@ -40,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const u = session.user;
           setTimeout(() => {
             fetchDisplayName(u).then(setDisplayName).catch(() => setDisplayName(null));
+            fetchGlobalRole(u).then(setGlobalRole).catch(() => setGlobalRole(null));
           }, 0);
         } else {
           setDisplayName(null);
@@ -60,6 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const u = session.user;
           setTimeout(() => {
             fetchDisplayName(u).then(setDisplayName).catch(() => setDisplayName(null));
+            fetchGlobalRole(u).then(setGlobalRole).catch(() => setGlobalRole(null));
+
           }, 0);
         } else {
           setDisplayName(null);
@@ -80,6 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signOut,
     displayName,
+    globalRole,
+
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -115,3 +123,15 @@ async function fetchDisplayName(user: User): Promise<string | null> {
   }
   return user.email ?? null;
 }
+
+//get global role
+async function fetchGlobalRole(user: User): Promise<string | null> {
+  const { data } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  return data?.role ?? null;
+}
+

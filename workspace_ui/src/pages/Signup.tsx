@@ -11,6 +11,11 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    //make sure passwords match
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
