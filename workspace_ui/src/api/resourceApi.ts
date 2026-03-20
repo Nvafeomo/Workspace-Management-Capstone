@@ -9,6 +9,20 @@ export const resourceApi = {
   // Deletes all dependencies first to prevent foreign key errors
   delete: async (id: string): Promise<void> => {
 
+    //get status from database
+    const statusResult = await supabase
+      .from('resource')
+      .select('status')
+      .eq('id', id)
+      .single();
+
+    if (statusResult.error) throw statusResult.error;
+
+    //cant delete if borrowed or requested
+    if (statusResult.data.status === 'BORROWED' || statusResult.data.status === 'REQUESTED') {
+      throw new Error(`Cannot delete a resource with status "${statusResult.data.status}". It must be returned first.`);
+    }
+
     // 1. DELETE REQUESTS
     // Remove any borrow requests linked to this resource
     const { error: reqError } = await supabase

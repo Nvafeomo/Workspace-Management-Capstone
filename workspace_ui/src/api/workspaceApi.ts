@@ -198,5 +198,55 @@ export const workspaceApi = {
     return (data ?? []).map(row => row.workspace_id);
   },
 
+  // delete a workspace and all its dependencies
+  async delete(workspaceId: string): Promise<void> {
+    //get all resource ids in this workspace
+    const { data: resourceLinks } = await supabase
+      .from('workspace_resource')
+      .select('resource_id')
+      .eq('workspace_id', workspaceId);
+
+    const resourceIds = (resourceLinks ?? []).map((r: any) => r.resource_id);
+
+    //delete borrow_requests for those resources
+    if (resourceIds.length > 0) {
+      const { error: borrowError } = await supabase
+        .from('borrow_request')
+        .delete()
+        .in('resource_id', resourceIds);
+      if (borrowError) throw borrowError;
+    }
+
+    //delete workspace_resource links
+    const { error: linkError } = await supabase
+      .from('workspace_resource')
+      .delete()
+      .eq('workspace_id', workspaceId);
+    if (linkError) throw linkError;
+
+    //delete the resources themselves
+    if (resourceIds.length > 0) {
+      const { error: resourceError } = await supabase
+        .from('resource')
+        .delete()
+        .in('id', resourceIds);
+      if (resourceError) throw resourceError;
+    }
+
+    //delete workspace_users
+    const { error: usersError } = await supabase
+      .from('workspace_users')
+      .delete()
+      .eq('workspace_id', workspaceId);
+    if (usersError) throw usersError;
+
+    //delete the workspace itself
+    const { error: wsError } = await supabase
+      .from('workspaces')
+      .delete()
+      .eq('id', workspaceId);
+    if (wsError) throw wsError;
+  },
+
 
 };

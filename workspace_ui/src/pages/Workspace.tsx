@@ -81,6 +81,17 @@ export const WorkspacePage = () => {
 
   // --- NEW: Handle Delete Function ---
   const handleDelete = async (resourceId: string, resourceName: string) => {
+
+    //find resource to be deleted
+    const resourceToDelete = resources.find(r => r.id === resourceId);
+
+    //check if resource is borrowed, if it is borrowed, block delete
+    if (resourceToDelete?.status === 'BORROWED' || resourceToDelete?.status === 'REQUESTED') {
+      alert(`"${resourceName}" cannot be deleted while it is currently ${resourceToDelete.status.toLowerCase()}. Please wait until it is returned.`);
+      return;
+    }
+
+
     // 1. Confirm with the user
     if (!window.confirm(`Are you sure you want to permanently delete "${resourceName}"?`)) {
       return;
@@ -119,8 +130,11 @@ export const WorkspacePage = () => {
       );
 
       // 3. Update UI
+      //if 0 approvals, it will change immediately to borrowed
+      const newStatus = approvalsNeeded > 0 ? 'REQUESTED' : 'BORROWED';
+
       setResources(prev => prev.map(res =>
-          res.id === resourceId ? { ...res, status: 'REQUESTED' } : res
+          res.id === resourceId ? { ...res, status: newStatus } : res
       ));
       alert('Borrow request submitted successfully!');
     } catch (error) {

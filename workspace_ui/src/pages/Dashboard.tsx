@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { workspaceApi } from '../api/workspaceApi';
 import { Workspace } from '../types';
-import { ChevronRight, Loader2, Plus } from 'lucide-react';
+import { ChevronRight, Loader2, Plus, Trash2  } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
 
@@ -16,6 +16,7 @@ export const Dashboard = () => {
   const [newWorkspace, setNewWorkspace] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
   const [memberships, setMemberships] = useState<Record<string, string | null>>({}); //membership state
+  const [roles, setRoles] = useState<Record<string, string | null>>({});
 
 
   //load on render, currently loads all workspaces on render, runs when user?.id changes
@@ -29,10 +30,13 @@ export const Dashboard = () => {
         //get membership status for workspaces
         if (user?.id) {
           const membershipMap: Record<string, string | null> = {};
+          const roleMap: Record<string, string | null> = {};
           await Promise.all(data.map(async ws => {
             membershipMap[ws.id] = await workspaceApi.getMembership(ws.id, user.id);
+            roleMap[ws.id] = await workspaceApi.getUserRole(ws.id, user.id);
           }));
           setMemberships(membershipMap);
+          setRoles(roleMap);
         }
       })
       .catch(err => {
@@ -52,6 +56,7 @@ export const Dashboard = () => {
       setWorkspaces(prev => [...prev, created]);
       // update memberships state so new workspace shows as approved
       setMemberships(prev => ({ ...prev, [created.id]: 'APPROVED' }));
+      setRoles(prev => ({ ...prev, [created.id]: 'ADMIN' })); // set role when creating workspace
       setIsModalOpen(false);
       setNewWorkspace({ name: '', description: '' });
     } catch (error) {
@@ -72,6 +77,19 @@ export const Dashboard = () => {
       alert('Failed to send join request.');
     }
   };
+
+  //delete workspace function
+  const handleDeleteWorkspace = async (workspaceId: string, workspaceName: string) => {
+  if (!window.confirm(`Are you sure you want to permanently delete "${workspaceName}" and all its resources?`)) return;
+  try {
+    await workspaceApi.delete(workspaceId);
+    setWorkspaces(prev => prev.filter(ws => ws.id !== workspaceId));
+  } catch (error: any) {
+    console.error('Delete workspace failed:', error);
+    alert(error?.message ?? 'Failed to delete workspace.');
+  }
+};
+
 
 
   if (loading) {
@@ -123,8 +141,19 @@ export const Dashboard = () => {
                     <h3 className="text-xl font-bold text-slate-900">{ws.name}</h3>
                     <p className="text-slate-500 mt-2 line-clamp-2 text-sm leading-relaxed">{ws.description}</p>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
-                    <ChevronRight size={20} />
+                  <div className="flex items-center gap-1">
+                    {(globalRole === 'MASTER' || roles[ws.id] === 'ADMIN') && (
+                      <button
+                        onClick={() => handleDeleteWorkspace(ws.id, ws.name)}
+                        className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-all"
+                        title="Delete Workspace"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                      <ChevronRight size={20} />
+                    </div>
                   </div>
                 </div>
                 <div className="mt-4">
