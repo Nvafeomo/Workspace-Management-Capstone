@@ -9,6 +9,8 @@ import Signup from './pages/Signup';
 import Login from './pages/Login';
 import {ManageWorkspace} from './pages/ManageWorkspace';
 import { MyResources } from './pages/MyResources';
+import { ResourcePage } from './pages/Resource';
+import { Scan } from './pages/Scan';
 
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -47,6 +49,8 @@ export default function App() {
                     <Route path="/workspace/:id/manage" element={<ManageWorkspace />} />
                     <Route path="/approvals" element={<Approvals />} />
                     <Route path="/my-resources" element={<MyResources />} />
+                    <Route path="/resource/:id" element={<ResourcePage />} />
+                    <Route path="/scan" element={<Scan />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>

@@ -14,7 +14,8 @@ import {
   HandHelping,
   Plus,
   Trash2, // Imported for the delete button
-  Users
+  Users,
+  QrCode
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
@@ -284,14 +285,27 @@ export const WorkspacePage = () => {
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                   <div className="p-6 space-y-4">
 
-                    {/* Resource Header with Delete Button */}
+                    {/* Resource Header with View QR and Delete Button */}
                     <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <h3 className="font-bold text-slate-900 text-lg">{res.name}</h3>
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <Link
+                          to={`/resource/${res.id}`}
+                          className="font-bold text-slate-900 text-lg hover:text-indigo-600 transition-colors block"
+                        >
+                          {res.name}
+                        </Link>
                         <p className="text-sm text-slate-500 line-clamp-2">{res.description}</p>
                       </div>
 
-                      {/* NEW DELETE BUTTON */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Link
+                          to={`/resource/${res.id}`}
+                          className="p-2 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                          title="View QR Code"
+                        >
+                          <QrCode size={18} />
+                        </Link>
+                        {/* DELETE BUTTON */}
                       {/* Only admin and master sees delete button */}
                       {(userRole === 'ADMIN' || globalRole  === 'MASTER')&& (
                       <button
@@ -305,6 +319,7 @@ export const WorkspacePage = () => {
                         <Trash2 size={18} />
                       </button>
                       )}
+                    </div>
                     </div>
 
                     {/* Status Badges */}

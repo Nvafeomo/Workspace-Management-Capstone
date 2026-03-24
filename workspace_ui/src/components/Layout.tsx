@@ -7,6 +7,7 @@ import {
   LogOut,
   User as UserIcon,
   Package,
+  QrCode,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -64,13 +65,14 @@ export const Sidebar = () => {
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/scan', icon: QrCode, label: 'Scan QR' },
     //only admins get to see approvals page in sidebar
     ...(globalRole === 'ADMIN' || globalRole === 'MASTER' || isApprover ? [{ to: '/approvals', icon: CheckSquare, label: 'Approvals' }] : []),
     { to: '/my-resources', icon: Package, label: 'My Resources' },
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">
+    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0 print:hidden">
       <div className="p-6 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
@@ -115,7 +117,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
       <Sidebar />
       <main className="flex-1 flex flex-col">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10 print:hidden">
           <div className="flex items-center gap-4">
             <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Workspace Management</h2>
           </div>

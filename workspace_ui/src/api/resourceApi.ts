@@ -82,6 +82,18 @@ export const resourceApi = {
     return data as Resource;
   },
 
+  //get resource by id with workspace_id (for "Back to Workspace" link when coming from QR scan)
+  getByIdWithWorkspace: async (id: string): Promise<{ resource: Resource; workspaceId: string | null }> => {
+    const resource = await resourceApi.getById(id);
+    const { data: links } = await supabase
+      .from('workspace_resource')
+      .select('workspace_id')
+      .eq('resource_id', id)
+      .limit(1);
+    const workspaceId = links?.[0]?.workspace_id ?? null;
+    return { resource, workspaceId };
+  },
+
   //create resource function
   //add to resource table
   //inserts into resource table first, then links to workspace via workspace_resource
