@@ -7,7 +7,7 @@ import { ArrowLeft, Check, X, Loader2, Users } from 'lucide-react';
 // Page for admins to manage workspace members and approve/reject join requests
 export const ManageWorkspace = () => {
   const { id } = useParams<{ id: string }>();
-  const { globalRole } = useAuth();
+  const { globalRole, user } = useAuth();
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +63,22 @@ export const ManageWorkspace = () => {
     } catch (error) {
       console.error(error);
       alert('Failed to update approver request.');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleAssignSuccessor = async (userId: string) => {
+    if (!id) return;
+    setProcessingId(userId);
+    try {
+      await workspaceApi.assignSuccessor(id, userId);
+      const updated = await workspaceApi.getMembers(id);
+      setMembers(updated);
+      alert('Successor assigned as ADMIN.');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to assign successor.');
     } finally {
       setProcessingId(null);
     }
@@ -182,10 +198,21 @@ export const ManageWorkspace = () => {
                 </div>
                 <span className="font-semibold text-slate-800">{member.users?.name ?? 'Unknown User'}</span>
               </div>
-              {/* role badge */}
-              <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                {member.role}
-              </span>
+              <div className="flex items-center gap-2">
+                {/* role badge */}
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  {member.role}
+                </span>
+                {(globalRole === 'MASTER' || member.role !== 'ADMIN') && member.user_id !== user?.id && (
+                  <button
+                    onClick={() => handleAssignSuccessor(member.user_id)}
+                    disabled={processingId === member.user_id || (member.role !== 'MEMBER' && member.role !== 'APPROVER')}
+                    className="px-3 py-1 rounded-lg text-xs font-bold text-indigo-700 border border-indigo-200 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Assign Successor
+                  </button>
+                )}
+              </div>
             </div>
           ))
         )}

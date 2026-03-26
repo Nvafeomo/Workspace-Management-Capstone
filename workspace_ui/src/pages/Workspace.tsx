@@ -200,11 +200,51 @@ export const WorkspacePage = () => {
     if (!window.confirm('Are you sure you want to leave this workspace? It will not be deleted.')) return;
 
     try {
-      await workspaceApi.leaveWorkspace(id, user.id);
+      let chosenSuccessorId: string | undefined;
+
+      if (userRole === 'ADMIN') {
+        const candidates = await workspaceApi.getSuccessorCandidates(id, user.id);
+        if (candidates.length > 0) {
+          const options = candidates
+            .map((candidate: any, index: number) => `${index + 1}. ${candidate.users?.name ?? candidate.user_id} (${candidate.role})`)
+            .join('\n');
+
+          const selected = window.prompt(
+            `Choose a successor before leaving (enter number).\nLeave blank or cancel to auto-assign the approver with most approvals.\n\n${options}`
+          );
+
+          if (selected && selected.trim() !== '') {
+            const selectedIndex = Number(selected) - 1;
+            if (!Number.isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < candidates.length) {
+              chosenSuccessorId = candidates[selectedIndex].user_id;
+            } else {
+              alert('Invalid selection. Auto successor assignment will be used.');
+            }
+          }
+        }
+      }
+
+      const result = await workspaceApi.leaveWorkspace(id, user.id, chosenSuccessorId);
+      if (result.successorId && result.autoAssigned) {
+        alert('No successor selected. A successor was auto-assigned from approvers before you left.');
+      }
       navigate('/');
     } catch (error) {
       console.error(error);
-      alert('Failed to leave workspace.');
+      alert((error as Error)?.message ?? 'Failed to leave workspace.');
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!id || !workspace?.name) return;
+    if (!window.confirm(`Are you sure you want to permanently delete "${workspace.name}" and all its resources?`)) return;
+
+    try {
+      await workspaceApi.delete(id);
+      navigate('/');
+    } catch (error) {
+      console.error(error);
+      alert((error as Error)?.message ?? 'Failed to delete workspace.');
     }
   };
 
@@ -274,13 +314,20 @@ export const WorkspacePage = () => {
                 Approver Request Pending
               </button>
             )}
-            {console.log('render check - userRole:', userRole, 'globalRole:', globalRole)}
             {(memberStatus === 'APPROVED' || memberStatus === 'APPROVER_PENDING') && globalRole !== 'MASTER' && (
               <button
                 onClick={handleLeaveWorkspace}
                 className="px-4 py-3 bg-white text-rose-600 border border-rose-300 rounded-xl font-bold text-sm hover:bg-rose-50 transition-all"
               >
                 Leave Workspace
+              </button>
+            )}
+            {(userRole === 'ADMIN' || globalRole  === 'MASTER') && (
+              <button
+                onClick={handleDeleteWorkspace}
+                className="px-4 py-3 bg-white text-rose-700 border border-rose-400 rounded-xl font-bold text-sm hover:bg-rose-50 transition-all"
+              >
+                Delete Workspace
               </button>
             )}
             {(userRole === 'ADMIN' || globalRole  === 'MASTER') && (
