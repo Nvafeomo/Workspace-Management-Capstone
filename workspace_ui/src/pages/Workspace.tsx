@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { workspaceApi } from '../api/workspaceApi';
 import { resourceApi } from '../api/resourceApi';
@@ -42,6 +42,7 @@ const StatusBadge = ({ status }: { status: Resource['status'] }) => {
 
 export const WorkspacePage = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,6 +195,19 @@ export const WorkspacePage = () => {
     }
   };
 
+  const handleLeaveWorkspace = async () => {
+    if (!user?.id || !id) return;
+    if (!window.confirm('Are you sure you want to leave this workspace? It will not be deleted.')) return;
+
+    try {
+      await workspaceApi.leaveWorkspace(id, user.id);
+      navigate('/');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to leave workspace.');
+    }
+  };
+
 
   if (!workspace) {
     return (
@@ -261,6 +275,14 @@ export const WorkspacePage = () => {
               </button>
             )}
             {console.log('render check - userRole:', userRole, 'globalRole:', globalRole)}
+            {(memberStatus === 'APPROVED' || memberStatus === 'APPROVER_PENDING') && globalRole !== 'MASTER' && (
+              <button
+                onClick={handleLeaveWorkspace}
+                className="px-4 py-3 bg-white text-rose-600 border border-rose-300 rounded-xl font-bold text-sm hover:bg-rose-50 transition-all"
+              >
+                Leave Workspace
+              </button>
+            )}
             {(userRole === 'ADMIN' || globalRole  === 'MASTER') && (
             <button
                 onClick={() => setIsModalOpen(true)}

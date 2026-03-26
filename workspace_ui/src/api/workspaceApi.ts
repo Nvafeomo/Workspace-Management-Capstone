@@ -198,6 +198,17 @@ export const workspaceApi = {
     return (data ?? []).map(row => row.workspace_id);
   },
 
+  // remove the current user's membership from a workspace without deleting the workspace
+  async leaveWorkspace(workspaceId: string, userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('workspace_users')
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  },
+
   // delete a workspace and all its dependencies
   async delete(workspaceId: string): Promise<void> {
     //get all resource ids in this workspace
