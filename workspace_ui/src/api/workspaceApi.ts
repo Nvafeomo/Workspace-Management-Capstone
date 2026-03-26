@@ -198,6 +198,126 @@ export const workspaceApi = {
     return (data ?? []).map(row => row.workspace_id);
   },
 
+  // get eligible successor candidates (approved members/approvers excluding current admin)
+  async getSuccessorCandidates(workspaceId: string, currentUserId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('workspace_users')
+      .select('user_id, role, status, users(name)')
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'APPROVED')
+      .in('role', ['MEMBER', 'APPROVER'])
+      .neq('user_id', currentUserId);
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  // promote a member/approver to ADMIN as successor
+  async assignSuccessor(workspaceId: string, successorUserId: string): Promise<void> {
+    const { error } = await supabase
+      .from('workspace_users')
+      .update({ role: 'ADMIN', status: 'APPROVED' })
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', successorUserId);
+
+    if (error) throw error;
+  },
+
+  // remove the current user's membership from a workspace without deleting the workspace
+  async leaveWorkspace(
+    workspaceId: string,
+    userId: string,
+    successorUserId?: string
+  ): Promise<{ successorId: string | null; autoAssigned: boolean }> {
+    let chosenSuccessorId: string | null = successorUserId ?? null;
+    let autoAssigned = false;
+
+    const { data: me, error: meError } = await supabase
+      .from('workspace_users')
+      .select('role')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (meError) throw meError;
+
+    if (me?.role === 'ADMIN') {
+      const { data: otherAdmins, error: adminsError } = await supabase
+        .from('workspace_users')
+        .select('user_id')
+        .eq('workspace_id', workspaceId)
+        .eq('role', 'ADMIN')
+        .eq('status', 'APPROVED')
+        .neq('user_id', userId);
+
+      if (adminsError) throw adminsError;
+
+      // If this is the last admin, we must assign a successor before leaving.
+      if (!otherAdmins || otherAdmins.length === 0) {
+        if (!chosenSuccessorId) {
+          const { data: approvers, error: approverError } = await supabase
+            .from('workspace_users')
+            .select('user_id')
+            .eq('workspace_id', workspaceId)
+            .eq('status', 'APPROVED')
+            .eq('role', 'APPROVER')
+            .neq('user_id', userId);
+
+          if (approverError) throw approverError;
+
+          const approverIds = (approvers ?? []).map(a => a.user_id);
+          if (approverIds.length > 0) {
+            const { data: approvedRows, error: approvedError } = await supabase
+              .from('borrow_request')
+              .select('user_id, resource(workspace_resource(workspace_id))')
+              .eq('status', 'APPROVED');
+
+            if (approvedError) throw approvedError;
+
+            const score = new Map<string, number>();
+            for (const approverId of approverIds) {
+              score.set(approverId, 0);
+            }
+
+            for (const row of approvedRows ?? []) {
+              const workspaceIds = (row as any)?.resource?.workspace_resource?.map((wr: any) => wr.workspace_id) ?? [];
+              if (!workspaceIds.includes(workspaceId)) continue;
+              const candidateId = (row as any).user_id as string;
+              if (!score.has(candidateId)) continue;
+              score.set(candidateId, (score.get(candidateId) ?? 0) + 1);
+            }
+
+            chosenSuccessorId = approverIds[0];
+            let bestScore = -1;
+            for (const [candidateId, candidateScore] of score.entries()) {
+              if (candidateScore > bestScore) {
+                bestScore = candidateScore;
+                chosenSuccessorId = candidateId;
+              }
+            }
+            autoAssigned = true;
+          }
+        }
+
+        if (!chosenSuccessorId) {
+          throw new Error('No eligible successor found. Add an approver or choose a successor before leaving.');
+        }
+
+        await workspaceApi.assignSuccessor(workspaceId, chosenSuccessorId);
+      }
+    }
+
+    const { error } = await supabase
+      .from('workspace_users')
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    return { successorId: chosenSuccessorId, autoAssigned };
+  },
+
   // delete a workspace and all its dependencies
   async delete(workspaceId: string): Promise<void> {
     //get all resource ids in this workspace
