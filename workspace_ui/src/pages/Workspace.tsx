@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate  } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { workspaceApi } from '../api/workspaceApi';
 import { resourceApi } from '../api/resourceApi';
@@ -15,7 +15,8 @@ import {
   Plus,
   Trash2, // Imported for the delete button
   Users,
-  QrCode
+  QrCode,
+  LogOut
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
@@ -47,7 +48,9 @@ export const WorkspacePage = () => {
   const [loading, setLoading] = useState(true);
   const [borrowingId, setBorrowingId] = useState<string | null>(null);
   const [memberStatus, setMemberStatus] = useState<string | null>(null);
-
+  //new leave state variables
+  const navigate = useNavigate();
+  const [leaving, setLeaving] = useState(false);
 
 
   // Modal State
@@ -194,6 +197,41 @@ export const WorkspacePage = () => {
     }
   };
 
+  //handles leaving a workspace, cannot leave if youre the only admin
+  const handleLeave = async () => {
+    if (!id || !user?.id) return;
+
+    // block leave if user has borrowed resources in this workspace
+    const [borrows, pendingRequests] = await Promise.all([
+      borrowApi.getUserBorrows(user.id),
+      borrowApi.getUserPendingRequests(user.id),
+    ]);
+
+    const hasActiveBorrow = borrows.some(b =>
+      b.resource?.workspace_resource?.some((wr: any) => wr.workspace_id === id)
+    );
+    const hasPendingRequest = pendingRequests.some(b =>
+      b.resource?.workspace_resource?.some((wr: any) => wr.workspace_id === id)
+    );
+
+    if (hasActiveBorrow || hasPendingRequest) {
+      alert('You cannot leave this workspace while you have borrowed or pending resources. Please return or cancel them first.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to leave this workspace?')) return;
+
+    setLeaving(true);
+    try {
+      await workspaceApi.leaveWorkspace(id, user.id);
+      navigate('/', { replace: true });
+    } catch (error: any) {
+      console.error(error);
+      alert(error?.message ?? 'Failed to leave workspace.');
+    } finally {
+      setLeaving(false);
+    }
+  };
 
   if (!workspace) {
     return (
@@ -217,13 +255,13 @@ export const WorkspacePage = () => {
             <div>
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">{workspace.name}</h1>
-                {userRole === 'ADMIN' && (
+                {userRole === 'ADMIN' || userRole === 'OWNER' && (
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
-                    Admin
+                    {userRole === 'OWNER' ? 'Owner' : 'Admin'}
                   </span>
                 )}
                 {/* Manage members, see list of workspace members and requests to join workspaces, can only see button if admin   */}
-                {(userRole === 'ADMIN' || globalRole === 'MASTER') && (
+                {(userRole === 'ADMIN' || globalRole === 'MASTER' || userRole === 'OWNER') && (
                   <Link
                     to={`/workspace/${id}/manage`}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition-all"
@@ -261,7 +299,7 @@ export const WorkspacePage = () => {
               </button>
             )}
             {console.log('render check - userRole:', userRole, 'globalRole:', globalRole)}
-            {(userRole === 'ADMIN' || globalRole  === 'MASTER') && (
+            {(userRole === 'ADMIN' || globalRole  === 'MASTER' || userRole === 'OWNER') && (
             <button
                 onClick={() => setIsModalOpen(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
@@ -269,6 +307,15 @@ export const WorkspacePage = () => {
               <Plus size={20} />
               Add Resource
             </button>
+            )}
+            {globalRole !== 'MASTER' && memberStatus === 'APPROVED' && (
+              <button
+                onClick={handleLeave}
+                disabled={leaving}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-50"              >
+                {leaving ? <Loader2 className="animate-spin" size={16} /> : <LogOut size={16} />}
+                Leave Workspace
+              </button>
             )}
           </div>
         </header>
@@ -307,7 +354,7 @@ export const WorkspacePage = () => {
                         </Link>
                         {/* DELETE BUTTON */}
                       {/* Only admin and master sees delete button */}
-                      {(userRole === 'ADMIN' || globalRole  === 'MASTER')&& (
+                      {(userRole === 'ADMIN' || globalRole  === 'MASTER' || userRole === 'OWNER')&& (
                       <button
                           onClick={(e) => {
                             e.stopPropagation(); // Prevents checking item details when deleting

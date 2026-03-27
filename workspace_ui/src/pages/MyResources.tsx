@@ -6,7 +6,8 @@ import {
   Loader2, 
   Inbox,
   Box,
-  RotateCcw
+  RotateCcw,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -15,12 +16,19 @@ export const MyResources = () => {
   const [borrows, setBorrows] = useState<BorrowRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [returningId, setReturningId] = useState<string | null>(null);
+  const [pendingBorrows, setPendingBorrows] = useState<BorrowRequest[]>([]);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
 
   // load all currently borrowed resources for the user
   useEffect(() => {
     if (!user?.id) return;
-    borrowApi.getUserBorrows(user.id).then(data => {
-      setBorrows(data);
+    Promise.all([
+      borrowApi.getUserBorrows(user.id),
+      borrowApi.getUserPendingRequests(user.id),
+    ]).then(([borrowed, pending]) => {
+      setBorrows(borrowed);
+      setPendingBorrows(pending);
       setLoading(false);
     });
   }, [user?.id]);
@@ -42,6 +50,23 @@ export const MyResources = () => {
     }
   };
 
+  //handle canceling request
+  const handleCancel = async (borrowId: string, resourceId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this request?')) return;
+    setCancellingId(borrowId);
+    try {
+      await borrowApi.cancelRequest(borrowId, resourceId);
+      setPendingBorrows(prev => prev.filter(b => b.id !== borrowId));
+      alert('Request cancelled successfully!');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to cancel request.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -58,56 +83,114 @@ export const MyResources = () => {
         <p className="text-slate-500 mt-2 text-lg">Resources you currently have borrowed.</p>
       </header>
 
-      {borrows.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-20 text-center">
-          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
-            <Inbox size={40} />
+      {/* Pending Requests Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-slate-700">Pending Requests</h2>
+        {pendingBorrows.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-10 text-center">
+            <p className="text-slate-500">No pending requests.</p>
           </div>
-          <h3 className="text-xl font-bold text-slate-900">No borrowed resources</h3>
-          <p className="text-slate-500 mt-2">You have not borrowed any resources yet.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4">
-          <AnimatePresence mode="popLayout">
-            {borrows.map((borrow) => (
-              <motion.div
-                key={borrow.id}
-                layout
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 flex-shrink-0">
-                    <Box size={28} />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-slate-900 text-lg">{borrow.resource?.name}</h3>
-                    <p className="text-sm text-slate-500">
-                      Borrowed on {new Date(borrow.request_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleReturn(borrow.id, borrow.resource_id)}
-                  disabled={returningId === borrow.id}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all disabled:opacity-50"
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            <AnimatePresence mode="popLayout">
+              {pendingBorrows.map((borrow) => (
+                <motion.div
+                  key={borrow.id}
+                  layout
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-shadow"
                 >
-                  {returningId === borrow.id ? (
-                    <Loader2 className="animate-spin" size={18} />
-                  ) : (
-                    <>
-                      <RotateCcw size={18} />
-                      Return
-                    </>
-                  )}
-                </button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      )}
+                  <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 flex-shrink-0">
+                      <Box size={28} />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-slate-900 text-lg">{borrow.resource?.name}</h3>
+                      <p className="text-sm text-slate-500">
+                        Requested on {new Date(borrow.request_date).toLocaleDateString()}
+                      </p>
+                      <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+                        Awaiting Approval
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleCancel(borrow.id, borrow.resource_id)}
+                    disabled={cancellingId === borrow.id}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all disabled:opacity-50"
+                  >
+                    {cancellingId === borrow.id ? (
+                      <Loader2 className="animate-spin" size={18} />
+                    ) : (
+                      <>
+                        <X size={18} />
+                        Cancel Request
+                      </>
+                    )}
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      {/* Borrowed Resources Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-slate-700">Borrowed Resources</h2>
+        {borrows.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-10 text-center">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
+              <Inbox size={40} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">No borrowed resources</h3>
+            <p className="text-slate-500 mt-2">You have not borrowed any resources yet.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            <AnimatePresence mode="popLayout">
+              {borrows.map((borrow) => (
+                <motion.div
+                  key={borrow.id}
+                  layout
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 flex-shrink-0">
+                      <Box size={28} />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-slate-900 text-lg">{borrow.resource?.name}</h3>
+                      <p className="text-sm text-slate-500">
+                        Borrowed on {new Date(borrow.request_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleReturn(borrow.id, borrow.resource_id)}
+                    disabled={returningId === borrow.id}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all disabled:opacity-50"
+                  >
+                    {returningId === borrow.id ? (
+                      <Loader2 className="animate-spin" size={18} />
+                    ) : (
+                      <>
+                        <RotateCcw size={18} />
+                        Return
+                      </>
+                    )}
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

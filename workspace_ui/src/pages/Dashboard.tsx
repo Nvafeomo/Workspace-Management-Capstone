@@ -91,7 +91,6 @@ export const Dashboard = () => {
 };
 
 
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -142,7 +141,7 @@ export const Dashboard = () => {
                     <p className="text-slate-500 mt-2 line-clamp-2 text-sm leading-relaxed">{ws.description}</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    {(globalRole === 'MASTER' || roles[ws.id] === 'ADMIN') && (
+                    {(globalRole === 'MASTER' || roles[ws.id] === 'OWNER') && (
                       <button
                         onClick={() => handleDeleteWorkspace(ws.id, ws.name)}
                         className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-all"

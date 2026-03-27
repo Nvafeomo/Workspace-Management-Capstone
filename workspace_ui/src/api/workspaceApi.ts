@@ -51,7 +51,7 @@ export const workspaceApi = {
       {
         workspace_id: created.id,
         user_id: userId,
-        role: 'ADMIN',
+        role: 'OWNER', //changed to owner 
         status: 'APPROVED',
         joined: new Date().toISOString(),
       },
@@ -247,6 +247,71 @@ export const workspaceApi = {
       .eq('id', workspaceId);
     if (wsError) throw wsError;
   },
+  
+ //Update a member's role in a workspace
+ //Prevents removing the last admin
+  async updateMemberRole(workspaceId: string, targetUserId: string, newRole: Role, currentUserId: string): Promise<void> {
+  // if transferring ownership, demote current owner to ADMIN first
+  if (newRole === 'OWNER') {
+    const { error: demoteError } = await supabase
+      .from('workspace_users')
+      .update({ role: 'ADMIN' })
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', currentUserId);
 
+    if (demoteError) throw demoteError;
+  }
+
+    // if demoting someone from ADMIN, ensure at least one ADMIN or OWNER remains
+    if (newRole !== 'ADMIN' && newRole !== 'OWNER') {
+      const { data: admins, error: adminCheckError } = await supabase
+        .from('workspace_users')
+        .select('user_id')
+        .eq('workspace_id', workspaceId)
+        .in('role', ['ADMIN', 'OWNER'])
+        .eq('status', 'APPROVED');
+
+      if (adminCheckError) throw adminCheckError;
+
+      const others = (admins ?? []).filter(a => a.user_id !== targetUserId);
+      if (others.length === 0) {
+        throw new Error('Cannot change role: at least one admin or owner must remain in the workspace.');
+      }
+    }
+
+    const { error } = await supabase
+      .from('workspace_users')
+      .update({ role: newRole, status: 'APPROVED' })
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', targetUserId);
+
+    if (error) throw error;
+  },
+
+  //Leave a workspace
+  //Blocks if the user is the last admin
+  async leaveWorkspace(workspaceId: string, userId: string): Promise<void> {
+    const { data: membership, error: roleError } = await supabase
+      .from('workspace_users')
+      .select('role')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .single();
+
+    if (roleError) throw roleError;
+
+    // owner cannot leave without transferring ownership first
+    if (membership.role === 'OWNER') {
+      throw new Error('You must transfer ownership before leaving the workspace.');
+    }
+
+    const { error } = await supabase
+      .from('workspace_users')
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  },
 
 };

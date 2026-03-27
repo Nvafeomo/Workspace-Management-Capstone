@@ -102,6 +102,34 @@ export const borrowApi = {
 
     if (resourceError) throw resourceError;
   },
+  
+  //get all pending borrow requests for a user
+  getUserPendingRequests: async (userId: string): Promise<BorrowRequest[]> => {
+    const { data, error } = await supabase
+      .from('borrow_request')
+      .select(`*, resource(name, workspace_resource(workspace_id))`)
+      .eq('user_id', userId)
+      .eq('status', 'PENDING');
 
+    if (error) throw error;
+    return data as BorrowRequest[];
+  },
+
+  // cancel a borrow request (reuses REJECTED status)
+  cancelRequest: async (borrowId: string, resourceId: string): Promise<void> => {
+    const { error: borrowError } = await supabase
+      .from('borrow_request')
+      .update({ status: 'REJECTED' })
+      .eq('id', borrowId);
+
+    if (borrowError) throw borrowError;
+
+    const { error: resourceError } = await supabase
+      .from('resource')
+      .update({ status: 'AVAILABLE' })
+      .eq('id', resourceId);
+
+    if (resourceError) throw resourceError;
+  },
 
 };
