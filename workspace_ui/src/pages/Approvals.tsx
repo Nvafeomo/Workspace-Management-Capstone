@@ -10,13 +10,15 @@ import {
   Box, 
   Calendar,
   Loader2,
-  Inbox
+  Inbox,
+  History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const Approvals = () => {
   const { user, globalRole } = useAuth();
   const [requests, setRequests] = useState<BorrowRequest[]>([]);
+  const [history, setHistory] = useState<BorrowRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -25,33 +27,43 @@ export const Approvals = () => {
 
     const loadApprovals = async () => {
       try {
-        // master sees all pending requests
+        // master sees all pending requests and full history
         if (globalRole === 'MASTER') {
-          const data = await borrowApi.getApprovals();
-          setRequests(data.filter(r => r.status === 'PENDING'));
+          const [pendingData, historyData] = await Promise.all([
+            borrowApi.getApprovals(),
+            borrowApi.getHistory()
+          ]);
+          setRequests(pendingData.filter(r => r.status === 'PENDING'));
+          setHistory(historyData);
           setLoading(false);
           return;
         }
 
-        // admins and approvers only see requests for their workspaces
+        // admins and approvers only see records for their workspaces
         const approverWorkspaces = await workspaceApi.getApproverWorkspaces(user.id);
-        console.log('approver workspaces:', approverWorkspaces);
 
         if (approverWorkspaces.length === 0) {
           setRequests([]);
+          setHistory([]);
           setLoading(false);
           return;
         }
 
-        const data = await borrowApi.getApprovals();
-        console.log('all approvals:', data);
+        const [pendingData, historyData] = await Promise.all([
+          borrowApi.getApprovals(),
+          borrowApi.getHistory()
+        ]);
 
-        // filter to only show requests for workspaces the user is admin/approver of
-        const filtered = data.filter(r => {
-          const workspaceIds = r.resource?.workspace_resource?.map((wr: any) => wr.workspace_id) ?? [];
+        const isInManagedWorkspace = (record: BorrowRequest) => {
+          const workspaceIds = record.resource?.workspace_resource?.map((wr: any) => wr.workspace_id) ?? [];
           return workspaceIds.some((wsId: string) => approverWorkspaces.includes(wsId));
-        });
-        setRequests(filtered.filter(r => r.status === 'PENDING'));
+        };
+
+        const filteredPending = pendingData.filter(r => isInManagedWorkspace(r) && r.status === 'PENDING');
+        const filteredHistory = historyData.filter(isInManagedWorkspace);
+
+        setRequests(filteredPending);
+        setHistory(filteredHistory);
         setLoading(false);
       } catch (error) {
         console.error('loadApprovals error:', error);
@@ -67,6 +79,7 @@ export const Approvals = () => {
     try {
       await borrowApi.updateStatus(id, status);
       setRequests(prev => prev.filter(r => r.id !== id));
+      setHistory(prev => prev.map(r => (r.id === id ? { ...r, status } : r)));
       alert(`Request ${status === 'APPROVED' ? 'approved' : 'rejected'} successfully!`);
     } catch (error) {
       console.error(error);
@@ -83,6 +96,13 @@ export const Approvals = () => {
       </div>
     );
   }
+
+  const statusBadgeClass = (status: BorrowRequest['status']) => {
+    if (status === 'APPROVED') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (status === 'RETURNED') return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (status === 'REJECTED') return 'bg-rose-50 text-rose-700 border-rose-200';
+    return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+  };
 
   return (
     <div className="space-y-8">
@@ -157,6 +177,55 @@ export const Approvals = () => {
           </AnimatePresence>
         </div>
       )}
+
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <History size={20} className="text-slate-500" />
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Accountability History</h2>
+        </div>
+        <p className="text-slate-500">Who has or had each resource, with request and return timestamps.</p>
+
+        {history.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-10 text-center">
+            <p className="text-slate-500">No history records found for your managed workspaces.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-bold text-slate-700">Resource</th>
+                    <th className="text-left px-4 py-3 font-bold text-slate-700">User</th>
+                    <th className="text-left px-4 py-3 font-bold text-slate-700">Status</th>
+                    <th className="text-left px-4 py-3 font-bold text-slate-700">Requested At</th>
+                    <th className="text-left px-4 py-3 font-bold text-slate-700">Returned At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map(record => (
+                    <tr key={record.id} className="border-b border-slate-100 last:border-b-0">
+                      <td className="px-4 py-3 font-medium text-slate-900">{record.resource?.name ?? 'Unknown Resource'}</td>
+                      <td className="px-4 py-3 text-slate-700">{record.users?.name ?? 'Unknown User'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${statusBadgeClass(record.status)}`}>
+                          {record.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {record.request_date ? new Date(record.request_date).toLocaleString() : 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {record.return_date ? new Date(record.return_date).toLocaleString() : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 };

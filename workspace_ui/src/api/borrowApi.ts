@@ -24,7 +24,8 @@ export const borrowApi = {
       .insert([{ 
         resource_id: resourceId, 
         user_id: userId, 
-        status: initialStatus // Immediately approves if 0 required approvals
+        status: initialStatus, // Immediately approves if 0 required approvals
+        request_date: new Date().toISOString()
       }])
       .select()
       .single();
@@ -72,6 +73,17 @@ export const borrowApi = {
     return updated as BorrowRequest;
   },
 
+  // get all borrow records for accountability/audit views
+  getHistory: async (): Promise<BorrowRequest[]> => {
+    const { data, error } = await supabase
+      .from('borrow_request')
+      .select('*, resource(name, workspace_resource(workspace_id)), users(name)')
+      .order('request_date', { ascending: false });
+
+    if (error) throw error;
+    return data as BorrowRequest[];
+  },
+
   // get all currently borrowed resources for a user
   getUserBorrows: async (userId: string): Promise<BorrowRequest[]> => {
     const { data, error } = await supabase
@@ -89,7 +101,7 @@ export const borrowApi = {
     // update borrow request status to RETURNED
     const { error: borrowError } = await supabase
       .from('borrow_request')
-      .update({ status: 'RETURNED' })
+      .update({ status: 'RETURNED', return_date: new Date().toISOString() })
       .eq('id', borrowId);
 
     if (borrowError) throw borrowError;

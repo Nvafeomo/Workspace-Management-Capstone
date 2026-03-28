@@ -192,59 +192,85 @@ export const workspaceApi = {
       .from('workspace_users')
       .select('workspace_id')
       .eq('user_id', userId)
-      .in('role', ['APPROVER', 'ADMIN']);
+      .in('role', ['APPROVER', 'ADMIN', 'OWNER']);
 
     if (error) throw error;
     return (data ?? []).map(row => row.workspace_id);
   },
 
+  // get eligible successor candidates (approved members/approvers excluding current admin)
+  async getSuccessorCandidates(workspaceId: string, currentUserId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('workspace_users')
+      .select('user_id, role, status, users(name)')
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'APPROVED')
+      .in('role', ['MEMBER', 'APPROVER'])
+      .neq('user_id', currentUserId);
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  // promote a member/approver to ADMIN as successor
+  async assignSuccessor(workspaceId: string, successorUserId: string): Promise<void> {
+    const { error } = await supabase
+      .from('workspace_users')
+      .update({ role: 'ADMIN', status: 'APPROVED' })
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', successorUserId);
+
+    if (error) throw error;
+  },
+
   // delete a workspace and all its dependencies
   async delete(workspaceId: string): Promise<void> {
-    //get all resource ids in this workspace
     const { data: resourceLinks } = await supabase
       .from('workspace_resource')
       .select('resource_id')
       .eq('workspace_id', workspaceId);
 
     const resourceIds = (resourceLinks ?? []).map((r: any) => r.resource_id);
+    console.log('resource ids to delete:', resourceIds);
 
-    //delete borrow_requests for those resources
     if (resourceIds.length > 0) {
-      const { error: borrowError } = await supabase
+      const { data, error: borrowError } = await supabase
         .from('borrow_request')
         .delete()
-        .in('resource_id', resourceIds);
+        .in('resource_id', resourceIds)
+        .select();
+      console.log('step 1 - delete borrow requests:', data, borrowError);
       if (borrowError) throw borrowError;
     }
 
-    //delete workspace_resource links
     const { error: linkError } = await supabase
       .from('workspace_resource')
       .delete()
       .eq('workspace_id', workspaceId);
+    console.log('step 2 - delete workspace links:', linkError);
     if (linkError) throw linkError;
 
-    //delete the resources themselves
     if (resourceIds.length > 0) {
       const { error: resourceError } = await supabase
         .from('resource')
         .delete()
         .in('id', resourceIds);
+      console.log('step 3 - delete resources:', resourceError);
       if (resourceError) throw resourceError;
     }
 
-    //delete workspace_users
     const { error: usersError } = await supabase
       .from('workspace_users')
       .delete()
       .eq('workspace_id', workspaceId);
+    console.log('step 4 - delete workspace users:', usersError);
     if (usersError) throw usersError;
 
-    //delete the workspace itself
     const { error: wsError } = await supabase
       .from('workspaces')
       .delete()
       .eq('id', workspaceId);
+    console.log('step 5 - delete workspace:', wsError);
     if (wsError) throw wsError;
   },
   
@@ -289,29 +315,43 @@ export const workspaceApi = {
   },
 
   //Leave a workspace
-  //Blocks if the user is the last admin
-  async leaveWorkspace(workspaceId: string, userId: string): Promise<void> {
-    const { data: membership, error: roleError } = await supabase
+//Blocks if the user is the owner
+async leaveWorkspace(workspaceId: string, userId: string): Promise<void> {
+  const { data: membership, error: roleError } = await supabase
+    .from('workspace_users')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .single();
+
+  if (roleError) throw roleError;
+
+  // if owner, check members and block accordingly
+  if (membership.role === 'OWNER') {
+    const { data: allMembers, error: membersError } = await supabase
       .from('workspace_users')
-      .select('role')
+      .select('user_id')
       .eq('workspace_id', workspaceId)
-      .eq('user_id', userId)
-      .single();
+      .eq('status', 'APPROVED');
 
-    if (roleError) throw roleError;
+    if (membersError) throw membersError;
 
-    // owner cannot leave without transferring ownership first
-    if (membership.role === 'OWNER') {
-      throw new Error('You must transfer ownership before leaving the workspace.');
+    const otherMembers = (allMembers ?? []).filter(m => m.user_id !== userId);
+
+    if (otherMembers.length === 0) {
+      throw new Error('You are the only member in this workspace. Please delete the workspace instead of leaving.');
+    } else {
+      throw new Error('You must transfer ownership to another member before leaving. You can do this from Manage Members.');
     }
+  }
 
-    const { error } = await supabase
-      .from('workspace_users')
-      .delete()
-      .eq('workspace_id', workspaceId)
-      .eq('user_id', userId);
+  const { error } = await supabase
+    .from('workspace_users')
+    .delete()
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId);
 
-    if (error) throw error;
-  },
+  if (error) throw error;
+},
 
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate  } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { workspaceApi } from '../api/workspaceApi';
 import { resourceApi } from '../api/resourceApi';
@@ -43,13 +43,13 @@ const StatusBadge = ({ status }: { status: Resource['status'] }) => {
 
 export const WorkspacePage = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [borrowingId, setBorrowingId] = useState<string | null>(null);
   const [memberStatus, setMemberStatus] = useState<string | null>(null);
-  //new leave state variables
-  const navigate = useNavigate();
+  //new leave state variable
   const [leaving, setLeaving] = useState(false);
 
 
@@ -233,6 +233,20 @@ export const WorkspacePage = () => {
     }
   };
 
+  // delete the workspace and all its resources
+  const handleDeleteWorkspace = async () => {
+    if (!id || !workspace?.name) return;
+    if (!window.confirm(`Are you sure you want to permanently delete "${workspace.name}" and all its resources?`)) return;
+
+    try {
+      await workspaceApi.delete(id);
+      navigate('/');
+    } catch (error) {
+      console.error(error);
+      alert((error as Error)?.message ?? 'Failed to delete workspace.');
+    }
+  };
+
   if (!workspace) {
     return (
         <div className="text-center py-20">
@@ -277,9 +291,9 @@ export const WorkspacePage = () => {
           {/* Actions: Filter & Add Button */}
           <div className="flex items-center gap-4">
             <select
-                value={filter}
-                onChange={e => setFilter(e.target.value as 'ALL' | 'AVAILABLE' | 'BORROWED')}
-                className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+              value={filter}
+              onChange={e => setFilter(e.target.value as 'ALL' | 'AVAILABLE' | 'BORROWED')}
+              className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
             >
               <option value="ALL">All</option>
               <option value="AVAILABLE">Available</option>
@@ -299,20 +313,29 @@ export const WorkspacePage = () => {
               </button>
             )}
             {console.log('render check - userRole:', userRole, 'globalRole:', globalRole)}
-            {(userRole === 'ADMIN' || globalRole  === 'MASTER' || userRole === 'OWNER') && (
-            <button
+            {(userRole === 'OWNER' || globalRole === 'MASTER') && (
+              <button
+                onClick={handleDeleteWorkspace}
+                className="px-4 py-3 bg-white text-rose-700 border border-rose-400 rounded-xl font-bold text-sm hover:bg-rose-50 transition-all"
+              >
+                Delete Workspace
+              </button>
+            )}
+            {(userRole === 'ADMIN' || globalRole === 'MASTER' || userRole === 'OWNER') && (
+              <button
                 onClick={() => setIsModalOpen(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
-            >
-              <Plus size={20} />
-              Add Resource
-            </button>
+              >
+                <Plus size={20} />
+                Add Resource
+              </button>
             )}
             {globalRole !== 'MASTER' && memberStatus === 'APPROVED' && (
               <button
                 onClick={handleLeave}
                 disabled={leaving}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-50"              >
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-50"
+              >
                 {leaving ? <Loader2 className="animate-spin" size={16} /> : <LogOut size={16} />}
                 Leave Workspace
               </button>

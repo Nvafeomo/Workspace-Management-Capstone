@@ -8,11 +8,13 @@ import {
   User as UserIcon,
   Package,
   QrCode,
+  Loader2 // Added Loader2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { workspaceApi } from '../api/workspaceApi';
+import { userApi } from '../api/userApi'; // Import our new API
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -106,8 +108,11 @@ export const Sidebar = () => {
 };
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
-  const { displayName, user } = useAuth();
+  const { displayName, user, signOut } = useAuth(); // Added signOut here
+  const navigate = useNavigate();
+
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false); // New state for loading indicator
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -122,6 +127,28 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // New handler for the deletion process
+  const handleDeleteAccount = async () => {
+    const confirmDelete = window.confirm(
+        "Are you absolutely sure you want to delete your account? This action cannot be undone."
+    );
+
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await userApi.deleteAccount();
+      alert("Account deleted successfully.");
+      await signOut(); // Clear local session
+      navigate('/login', { replace: true });
+    } catch (error: any) {
+      alert(error.message || "An error occurred while deleting your account.");
+    } finally {
+      setIsDeleting(false);
+      setShowProfileDropdown(false);
+    }
+  };
 
   return (
       <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
@@ -151,8 +178,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       <p className="text-sm text-slate-500 break-all">{user?.email}</p>
                     </div>
                     <div className="pt-4 border-t border-slate-100">
-                      <button className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors">
-                        Delete Account
+                      <button
+                          onClick={handleDeleteAccount}
+                          disabled={isDeleting}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {isDeleting ? <Loader2 className="animate-spin" size={16} /> : 'Delete Account'}
                       </button>
                     </div>
                   </div>
