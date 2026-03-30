@@ -133,7 +133,7 @@ export const ResourcePage = () => {
   if (!resource) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-slate-900">Resource not found</h2>
+        <h2 className="text-2xl font-bold text-slate-900">You are not a part of this workspace</h2>
         <Link to="/" className="text-indigo-600 hover:underline mt-4 inline-block">Back to Dashboard</Link>
       </div>
     );
