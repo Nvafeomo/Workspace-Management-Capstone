@@ -63,7 +63,7 @@ export const Sidebar = () => {
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/scan', icon: QrCode, label: 'Scan QR' },
+    //{ to: '/scan', icon: QrCode, label: 'Scan QR' },
     ...(globalRole === 'ADMIN' || globalRole === 'MASTER' || isApprover ? [{ to: '/approvals', icon: CheckSquare, label: 'Approvals' }] : []),
     { to: '/my-resources', icon: Package, label: 'My Resources' },
   ];
