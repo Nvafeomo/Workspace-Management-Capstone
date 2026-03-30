@@ -100,6 +100,23 @@ export const workspaceApi = {
       if (error) return null;
       return data?.status ?? null;
     },
+    /**
+   * Whether the user can view resources in a workspace (QR scan, /resource/:id).
+   * Adminalways; otherwise membership must be APPROVED or APPROVER_PENDING (same as Dashboard).
+   */
+    async canAccessWorkspaceResource(userId: string, workspaceId: string | null): Promise<boolean> {
+      const { data: userRow, error: userErr } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single();
+  
+      if (!userErr && userRow?.role === 'MASTER') return true;
+      if (!workspaceId) return false;
+  
+      const status = await this.getMembership(workspaceId, userId);
+      return status === 'APPROVED' || status === 'APPROVER_PENDING';
+    },
   // creates a join request to a workspace
   async requestJoin(workspaceId: string, userId: string): Promise<void> {
       const { error } = await supabase

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { resourceApi } from '../api/resourceApi';
 import { borrowApi } from '../api/borrowApi';
+import { workspaceApi } from '../api/workspaceApi';
 import { Resource } from '../types';
 import { 
   ArrowLeft, 
@@ -31,6 +32,7 @@ export const ResourcePage = () => {
   const [returning, setReturning] = useState(false);
   const [success, setSuccess] = useState(false);
   const { user } = useAuth() ?? { user: null };
+  const [accessDenied, setAccessDenied] = useState(false);
 
   // Check if current user has this resource borrowed (for Return button)
   useEffect(() => {
@@ -51,13 +53,42 @@ export const ResourcePage = () => {
   }, [resource?.id]);
 
   useEffect(() => {
-    if (!id) return;
-    resourceApi.getByIdWithWorkspace(id).then(({ resource: res, workspaceId: wsId }) => {
-      setResource(res);
-      setWorkspaceId(wsId);
-      setLoading(false);
-    });
-  }, [id]);
+    if (!id || !user?.id) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setAccessDenied(false);
+
+    (async () => {
+      try {
+        const { resource: res, workspaceId: wsId } = await resourceApi.getByIdWithWorkspace(id);
+        if (cancelled) return;
+
+        const allowed = await workspaceApi.canAccessWorkspaceResource(user.id, wsId);
+        if (cancelled) return;
+
+        if (!allowed) {
+          setAccessDenied(true);
+          setResource(null);
+          setWorkspaceId(null);
+        } else {
+          setResource(res);
+          setWorkspaceId(wsId);
+        }
+      } catch {
+        if (!cancelled) {
+          setResource(null);
+          setWorkspaceId(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, user?.id]);
 
   const handleBorrow = async () => {
     if (!resource || !user?.id) return;
