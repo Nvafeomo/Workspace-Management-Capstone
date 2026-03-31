@@ -45,33 +45,103 @@ export const borrowApi = {
   getApprovals: async (): Promise<BorrowRequest[]> => {
     const { data, error } = await supabase
       .from('borrow_request')
-      .select(`*, resource(name, workspace_resource(workspace_id)), users(name)`)
-      .eq('status', 'PENDING');
-
+      .select(`*, resource(name, reqApprovers, workspace_resource(workspace_id)), users(name)`).eq('status', 'PENDING');
     if (error) throw error;
     return data as BorrowRequest[];
   },
 
   //update status of borrow request
   updateStatus: async (id: string, status: 'APPROVED' | 'REJECTED'): Promise<BorrowRequest> => {
-    const { data: updated, error } = await supabase
+    if (status === 'REJECTED') {
+      // rejected, just update the status and set resource back to AVAILABLE
+      const { data: updated, error } = await supabase
+        .from('borrow_request')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await supabase
+        .from('resource')
+        .update({ status: 'AVAILABLE' })
+        .eq('id', updated.resource_id);
+
+      return updated as BorrowRequest;
+    }
+
+    // approved — insert into approvals table first
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // check if this approver already approved
+    const { data: existing } = await supabase
+      .from('approvals')
+      .select('id')
+      .eq('borrow_request_id', id)
+      .eq('approver_id', user.id)
+      .maybeSingle();
+
+    if (existing) throw new Error('You have already approved this request.');
+
+    // insert approval record
+    const { error: approvalError } = await supabase
+      .from('approvals')
+      .insert([{ borrow_request_id: id, approver_id: user.id }]);
+
+    if (approvalError) throw approvalError;
+
+    // get the borrow request to find the resource and required approvers
+    const { data: borrowRequest, error: brError } = await supabase
       .from('borrow_request')
-      .update({ status })
+      .select('*, resource(reqApprovers)')
       .eq('id', id)
-      .select()
       .single();
 
-    if (error) throw error;
+    if (brError) throw brError;
 
-    // if approved set resource to BORROWED, if rejected return it to AVAILABLE
-    const resourceStatus = status === 'APPROVED' ? 'BORROWED' : 'AVAILABLE';
-    await supabase
-      .from('resource')
-      .update({ status: resourceStatus })
-      .eq('id', updated.resource_id);
+    // count total approvals so far
+    const { count, error: countError } = await supabase
+      .from('approvals')
+      .select('id', { count: 'exact' })
+      .eq('borrow_request_id', id);
 
-    return updated as BorrowRequest;
+    if (countError) throw countError;
+
+    const reqApprovers = borrowRequest.resource?.reqApprovers ?? 1;
+    const approvalCount = count ?? 0;
+
+    // only fully approve if we've hit the required number
+    if (approvalCount >= reqApprovers) {
+      const { data: updated, error } = await supabase
+        .from('borrow_request')
+        .update({ status: 'APPROVED' })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await supabase
+        .from('resource')
+        .update({ status: 'BORROWED' })
+        .eq('id', updated.resource_id);
+
+      return updated as BorrowRequest;
+    }
+
+    // not enough approvals yet, return the request as still PENDING
+    const { data: stillPending, error: pendingError } = await supabase
+      .from('borrow_request')
+      .select()
+      .eq('id', id)
+      .single();
+
+    if (pendingError) throw pendingError;
+    return stillPending as BorrowRequest;
   },
+
 
   // get all borrow records for accountability/audit views
   getHistory: async (): Promise<BorrowRequest[]> => {
@@ -143,5 +213,16 @@ export const borrowApi = {
 
     if (resourceError) throw resourceError;
   },
+
+  getApprovalCount: async (borrowRequestId: string): Promise<number> => {
+    const { count, error } = await supabase
+      .from('approvals')
+      .select('id', { count: 'exact' })
+      .eq('borrow_request_id', borrowRequestId);
+
+    if (error) throw error;
+    return count ?? 0;
+  },
+
 
 };

@@ -11,7 +11,8 @@ import {
   Calendar,
   Loader2,
   Inbox,
-  History
+  History,
+  ShieldCheck 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -21,6 +22,7 @@ export const Approvals = () => {
   const [history, setHistory] = useState<BorrowRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [approvalCounts, setApprovalCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!user?.id) return;
@@ -33,7 +35,15 @@ export const Approvals = () => {
             borrowApi.getApprovals(),
             borrowApi.getHistory()
           ]);
-          setRequests(pendingData.filter(r => r.status === 'PENDING'));
+          const filtered = pendingData.filter(r => r.status === 'PENDING');
+          setRequests(filtered);
+
+          const counts: Record<string, number> = {};
+          await Promise.all(filtered.map(async (req: BorrowRequest) => {
+            counts[req.id] = await borrowApi.getApprovalCount(req.id);
+          }));
+          setApprovalCounts(counts);
+
           setHistory(historyData);
           setLoading(false);
           return;
@@ -63,6 +73,12 @@ export const Approvals = () => {
         const filteredHistory = historyData.filter(isInManagedWorkspace);
 
         setRequests(filteredPending);
+        const counts: Record<string, number> = {};
+        await Promise.all(filteredPending.map(async (req: BorrowRequest) => {
+          counts[req.id] = await borrowApi.getApprovalCount(req.id);
+        }));
+        setApprovalCounts(counts);
+
         setHistory(filteredHistory);
         setLoading(false);
       } catch (error) {
@@ -77,12 +93,25 @@ export const Approvals = () => {
   const handleAction = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     setProcessingId(id);
     try {
-      await borrowApi.updateStatus(id, status);
-      setRequests(prev => prev.filter(r => r.id !== id));
-      setHistory(prev => prev.map(r => (r.id === id ? { ...r, status } : r)));
-      alert(`Request ${status === 'APPROVED' ? 'approved' : 'rejected'} successfully!`);
-    } catch (error) {
+      const updated = await borrowApi.updateStatus(id, status);
+      if (updated.status === 'APPROVED' || status === 'REJECTED') {
+        // fully approved or rejected, remove from list
+        setRequests(prev => prev.filter(r => r.id !== id));
+        setHistory(prev => prev.map(r => (r.id === id ? { ...r, status } : r)));
+      } else {
+        // still pending, just update the approval count
+        setApprovalCounts(prev => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+      }
+      alert(
+        status === 'REJECTED'
+          ? 'Request rejected.'
+          : updated.status === 'APPROVED'
+            ? 'Request fully approved!'
+            : 'Approval recorded. Waiting for more approvals.'
+      );
+    } catch (error: any) {
       console.error(error);
+      alert(error?.message ?? 'Failed to process request.');
     } finally {
       setProcessingId(null);
     }
@@ -122,7 +151,8 @@ export const Approvals = () => {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           <AnimatePresence mode="popLayout">
-            {requests.map((req) => (
+            {requests.map((req) => {
+              return (
               <motion.div
                 key={req.id}
                 layout
@@ -145,6 +175,10 @@ export const Approvals = () => {
                       <div className="flex items-center gap-1.5">
                         <Calendar size={14} className="text-slate-400" />
                         <span>Requested on {new Date(req.request_date).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck size={14} className="text-slate-400" />
+                        <span>{approvalCounts[req.id] ?? 0}/{req.resource?.reqApprovers ?? 1} approvals</span>
                       </div>
                     </div>
                   </div>
@@ -173,7 +207,7 @@ export const Approvals = () => {
                   </button>
                 </div>
               </motion.div>
-            ))}
+            )})}
           </AnimatePresence>
         </div>
       )}
