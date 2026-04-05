@@ -167,11 +167,11 @@ export const borrowApi = {
   },
 
   // return a borrowed resource
-  returnResource: async (borrowId: string, resourceId: string): Promise<void> => {
+  returnResource: async (borrowId: string, resourceId: string, returnNote?: string): Promise<void> => {
     // update borrow request status to RETURNED
     const { error: borrowError } = await supabase
       .from('borrow_request')
-      .update({ status: 'RETURNED', return_date: new Date().toISOString() })
+      .update({ status: 'RETURNED', return_date: new Date().toISOString(),  return_note: returnNote ?? null })
       .eq('id', borrowId);
 
     if (borrowError) throw borrowError;

@@ -234,6 +234,7 @@ export const Approvals = () => {
                     <th className="text-left px-4 py-3 font-bold text-slate-700">Status</th>
                     <th className="text-left px-4 py-3 font-bold text-slate-700">Requested At</th>
                     <th className="text-left px-4 py-3 font-bold text-slate-700">Returned At</th>
+                    <th className="text-left px-4 py-3 font-bold text-slate-700">Return Note</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -251,6 +252,9 @@ export const Approvals = () => {
                       </td>
                       <td className="px-4 py-3 text-slate-600">
                         {record.return_date ? new Date(record.return_date).toLocaleString() : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 italic">
+                        {record.return_note ?? '-'}
                       </td>
                     </tr>
                   ))}
