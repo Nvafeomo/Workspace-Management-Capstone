@@ -41,6 +41,15 @@ const StatusBadge = ({ status }: { status: Resource['status'] }) => {
   );
 };
 
+//Roles ranks for borrowing based on roles
+const ROLE_RANK: Record<string, number> = { MEMBER: 1, APPROVER: 2, ADMIN: 3, OWNER: 3, MASTER: 4 };
+//who can borrow based on role function
+const canBorrow = (userRole: string | null, globalRole: string | null, minRole: string = 'MEMBER') => {
+  const effective = globalRole === 'MASTER' ? 'MASTER' : (userRole ?? 'MEMBER');
+  return (ROLE_RANK[effective] ?? 0) >= (ROLE_RANK[minRole] ?? 1);
+};
+
+
 export const WorkspacePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -58,7 +67,8 @@ export const WorkspacePage = () => {
   const [newResource, setNewResource] = useState({
     name: '',
     description: '',
-    reqApprovers: 0
+    reqApprovers: 0,
+    minRole: 'MEMBER' as 'MEMBER' | 'APPROVER' | 'ADMIN'
   });
   const [creating, setCreating] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null); //userRole state
@@ -400,12 +410,17 @@ export const WorkspacePage = () => {
                       Approval Req.
                     </span>
                       )}
+                    {res.minRole && res.minRole !== 'MEMBER' && (
+                      <span className="text-[10px] font-bold text-amber-600 uppercase tracking-tighter bg-amber-50 px-1.5 py-0.5 rounded">
+                        {res.minRole}+ Only
+                      </span>
+                    )}
                     </div>
 
                     {/* Borrow Button */}
                     <button
                         onClick={() => handleQuickBorrow(res.id)}
-                        disabled={res.status !== 'AVAILABLE' || borrowingId === res.id}
+                        disabled={res.status !== 'AVAILABLE' || borrowingId === res.id || !canBorrow(userRole, globalRole, res.minRole)}
                         className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
                             res.status === 'AVAILABLE'
                                 ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100 active:scale-[0.98]'
@@ -470,6 +485,19 @@ export const WorkspacePage = () => {
                   placeholder="Number of approvers required"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
               />
+               {/* Select which roles can borrow */}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-bold text-slate-700">Minimum Role to Borrow</label>
+              <select
+                value={newResource.minRole}
+                onChange={e => setNewResource(prev => ({ ...prev, minRole: e.target.value as 'MEMBER' | 'APPROVER' | 'ADMIN' }))}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+              >
+                <option value="MEMBER">Member (anyone)</option>
+                <option value="APPROVER">Approver and above</option>
+                <option value="ADMIN">Admin / Owner only</option>
+              </select>
             </div>
             <button
                 type="submit"

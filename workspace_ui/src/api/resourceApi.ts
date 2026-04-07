@@ -104,7 +104,8 @@ export const resourceApi = {
         name: resource.name,
         description: resource.description,
         status: resource.status,
-        reqApprovers: resource.reqApprovers
+        reqApprovers: resource.reqApprovers,
+        minRole: resource.minRole ?? 'MEMBER'
       }])
       .select()
       .single();

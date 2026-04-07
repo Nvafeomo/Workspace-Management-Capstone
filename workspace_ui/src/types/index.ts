@@ -22,6 +22,7 @@ export interface Resource {
   status: 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE' | 'REQUESTED';
   reqApprovers: number;
   imageUrl?: string;
+  minRole?: 'MEMBER' | 'APPROVER' | 'ADMIN';
 }
 
 
