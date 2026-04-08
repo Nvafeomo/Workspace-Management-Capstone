@@ -3,6 +3,7 @@ import { borrowApi } from '../api/borrowApi';
 import { workspaceApi } from '../api/workspaceApi';
 import { useAuth } from '../contexts/AuthContext';
 import { BorrowRequest } from '../types';
+import { supabase } from '../supabaseClient';
 import { 
   Check, 
   X, 
@@ -12,9 +13,19 @@ import {
   Loader2,
   Inbox,
   History,
-  ShieldCheck 
+  ShieldCheck,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+function csvEscape(value: string | number | null | undefined): string {
+  const text = value == null ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function formatCsvDate(value?: string) {
+  return value ? new Date(value).toISOString() : '';
+}
 
 export const Approvals = () => {
   const { user, globalRole } = useAuth();
@@ -23,6 +34,7 @@ export const Approvals = () => {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [approvalCounts, setApprovalCounts] = useState<Record<string, number>>({});
+  const canExportLogs = globalRole === 'ADMIN' || globalRole === 'MASTER';
 
   useEffect(() => {
     if (!user?.id) return;
@@ -133,6 +145,71 @@ export const Approvals = () => {
     return 'bg-indigo-50 text-indigo-700 border-indigo-200';
   };
 
+  const handleExportCsv = () => {
+    if (history.length === 0) {
+      alert('There are no history records to export yet.');
+      return;
+    }
+
+    void (async () => {
+      const workspaceIds = Array.from(new Set(
+        history.flatMap(record => record.resource?.workspace_resource?.map((workspaceLink: { workspace_id: string }) => workspaceLink.workspace_id) ?? [])
+      ));
+
+      const workspaceNameMap = new Map<string, string>();
+      if (workspaceIds.length > 0) {
+        const { data: workspaceRows, error } = await supabase
+          .from('workspaces')
+          .select('id, name')
+          .in('id', workspaceIds);
+
+        if (error) throw error;
+
+        for (const workspace of workspaceRows ?? []) {
+          workspaceNameMap.set(workspace.id, workspace.name);
+        }
+      }
+
+      const headers = [
+        'workspace_name',
+        'resource_name',
+        'user_name',
+        'status',
+        'requested_at',
+        'returned_at',
+        'return_note',
+      ];
+
+      const rows = history.map(record => {
+        const workspaceNames = (record.resource?.workspace_resource ?? [])
+          .map((workspaceLink: { workspace_id: string }) => workspaceNameMap.get(workspaceLink.workspace_id) ?? workspaceLink.workspace_id)
+          .filter(Boolean);
+
+        return [
+          csvEscape(workspaceNames.length > 0 ? workspaceNames.join(' | ') : 'Unknown Workspace'),
+          csvEscape(record.resource?.name ?? 'Unknown Resource'),
+          csvEscape(record.users?.name ?? 'Unknown User'),
+          csvEscape(record.status),
+          csvEscape(formatCsvDate(record.request_date)),
+          csvEscape(formatCsvDate(record.return_date)),
+          csvEscape(record.return_note ?? ''),
+        ];
+      });
+
+      const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `borrow-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    })().catch(error => {
+      console.error('CSV export failed:', error);
+      alert('Failed to export CSV.');
+    });
+  };
+
   return (
     <div className="space-y-8">
       <header>
@@ -213,11 +290,24 @@ export const Approvals = () => {
       )}
 
       <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <History size={20} className="text-slate-500" />
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Accountability History</h2>
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <History size={20} className="text-slate-500" />
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Accountability History</h2>
+            </div>
+            <p className="text-slate-500">Who has or had each resource, with request and return timestamps.</p>
+          </div>
+          {canExportLogs && history.length > 0 && (
+            <button
+              onClick={handleExportCsv}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
+            >
+              <Download size={18} />
+              Export Data
+            </button>
+          )}
         </div>
-        <p className="text-slate-500">Who has or had each resource, with request and return timestamps.</p>
 
         {history.length === 0 ? (
           <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-10 text-center">
