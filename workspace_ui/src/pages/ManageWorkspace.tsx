@@ -14,9 +14,15 @@ export const ManageWorkspace = () => {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [pendingApproverRequests, setPendingApproverRequests] = useState<any[]>([]);
-  //new state variables for leaving workspace
+  //state variables for leaving workspace
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
   const [myRole, setMyRole] = useState<Role | null>(null);
+  //state variables for inviting to workspace
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<Role>('MEMBER');
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+
 
 
 
@@ -129,6 +135,24 @@ export const ManageWorkspace = () => {
     }
   };
 
+  //handles inviting people to workspace
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    setInviting(true);
+    setInviteError(null);
+    try {
+      await workspaceApi.inviteMember(id, inviteEmail, inviteRole);
+      setInviteEmail('');
+      setInviteRole('MEMBER');
+      const updated = await workspaceApi.getMembers(id);
+      setMembers(updated);
+    } catch (error: any) {
+      setInviteError(error?.message ?? 'Failed to invite member.');
+    } finally {
+      setInviting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -152,7 +176,41 @@ export const ManageWorkspace = () => {
       </header>
 
       <h1 className="text-3xl font-bold text-slate-900">Manage Members</h1>
-
+      {/* Invite members section */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold text-slate-700">Invite Member</h2>
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <form onSubmit={handleInvite} className="flex flex-col md:flex-row gap-3">
+            <input
+              required
+              type="email"
+              value={inviteEmail}
+              onChange={e => { setInviteEmail(e.target.value); setInviteError(null); }}
+              placeholder="Enter email address..."
+              className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all text-sm"
+            />
+            <select
+              value={inviteRole}
+              onChange={e => setInviteRole(e.target.value as Role)}
+              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all text-sm font-bold text-slate-700"
+            >
+              <option value="MEMBER">MEMBER</option>
+              <option value="APPROVER">APPROVER</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+            <button
+              type="submit"
+              disabled={inviting}
+              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {inviting ? <Loader2 className="animate-spin" size={16} /> : 'Invite'}
+            </button>
+          </form>
+          {inviteError && (
+            <p className="text-sm text-rose-600 font-medium mt-3">{inviteError}</p>
+          )}
+        </div>
+      </section>
       {/* Pending join requests section - shows users waiting for approval */}
       <section className="space-y-4">
         <h2 className="text-xl font-bold text-slate-700">Pending Join Requests</h2>
