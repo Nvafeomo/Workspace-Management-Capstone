@@ -8,6 +8,8 @@ import {
   User as UserIcon,
   Package,
   QrCode,
+  MessageCircle,
+  MessageSquare,
   Loader2 // Added Loader2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -61,11 +63,15 @@ export const Sidebar = () => {
     navigate('/login', { replace: true });
   };
 
+  const isGlobalAdmin = globalRole === 'ADMIN' || globalRole === 'MASTER';
+
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
     //{ to: '/scan', icon: QrCode, label: 'Scan QR' },
-    ...(globalRole === 'ADMIN' || globalRole === 'MASTER' || isApprover ? [{ to: '/approvals', icon: CheckSquare, label: 'Approvals' }] : []),
+    ...(isGlobalAdmin || isApprover ? [{ to: '/approvals', icon: CheckSquare, label: 'Approvals' }] : []),
     { to: '/my-resources', icon: Package, label: 'My Resources' },
+    ...(!isGlobalAdmin ? [{ to: '/give-feedback', icon: MessageCircle, label: 'Give Feedback' }] : []),
+    ...(isGlobalAdmin ? [{ to: '/user-feedback', icon: MessageSquare, label: 'View User Feedback' }] : []),
   ];
 
   return (

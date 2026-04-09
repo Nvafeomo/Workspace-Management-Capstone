@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { FeedbackLauncher } from '../components/FeedbackLauncher';
 import { Heading } from './Heading';
 import { Link } from 'react-router-dom';
 export default function Signup() {
@@ -39,7 +40,8 @@ export default function Signup() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
       <div className="mb-25">
-      <Heading />
+        <Heading />
+        <p className="mt-2 text-center text-base font-medium text-indigo-600">Manage your teams &amp; resources</p>
       </div>
       
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-lg w-80 space-y-4">
@@ -91,6 +93,9 @@ export default function Signup() {
         
         <p className="text-center text-sm text-slate-500">Already have an account? <Link to="/login" className="text-indigo-600 font-medium hover:underline">Sign in</Link></p>
       </form>
+      <div className="w-80">
+        <FeedbackLauncher />
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { FeedbackLauncher } from '../components/FeedbackLauncher';
 import { Heading } from './Heading';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -26,6 +27,7 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
       <div className="mb-25">
         <Heading />
+        <p className="mt-2 text-center text-base font-medium text-indigo-600">Manage your teams &amp; resources</p>
       </div>
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-lg w-80 space-y-4">
         <h2 className="text-xl font-semibold text-indigo-600 text-center">Sign In</h2>
@@ -52,6 +54,9 @@ export default function Login() {
         Don't have an account? <Link to="/signup" className="text-indigo-600 font-medium hover:underline">Create one</Link>
         </p>
       </form>
+      <div className="w-80">
+        <FeedbackLauncher />
+      </div>
     </div>
   );
 }
