@@ -171,7 +171,7 @@ export const WorkspacePage = () => {
       }, id);
       setResources(prev => [...prev, created]);
       setIsModalOpen(false);
-      setNewResource({ name: '', description: '', reqApprovers: 0 });
+      setNewResource({ name: '', description: '', reqApprovers: 0, minRole: 'MEMBER' });
     } catch (error) {
       console.error(error);
     } finally {
@@ -322,7 +322,6 @@ export const WorkspacePage = () => {
                 Approver Request Pending
               </button>
             )}
-            {console.log('render check - userRole:', userRole, 'globalRole:', globalRole)}
             {(userRole === 'OWNER' || globalRole === 'MASTER') && (
               <button
                 onClick={handleDeleteWorkspace}

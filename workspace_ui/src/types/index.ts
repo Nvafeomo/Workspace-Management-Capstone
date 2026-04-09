@@ -38,6 +38,8 @@ export interface BorrowRequest {
   resource?: { name: string; 
     workspace_id?: string;
     workspace_resource?: { workspace_id: string }[];
+    reqApprovers?: number;
+    minRole?: string;
  };
   users?: { name: string };
 }

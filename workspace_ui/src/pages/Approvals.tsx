@@ -34,8 +34,10 @@ export const Approvals = () => {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [approvalCounts, setApprovalCounts] = useState<Record<string, number>>({});
-  const canExportLogs = globalRole === 'ADMIN' || globalRole === 'MASTER';
-
+  const [isWorkspaceAdmin, setIsWorkspaceAdmin] = useState(false);
+  const canExportLogs = globalRole === 'MASTER' || isWorkspaceAdmin;
+  const [adminWorkspaceIds, setAdminWorkspaceIds] = useState<string[]>([]);
+  
   useEffect(() => {
     if (!user?.id) return;
 
@@ -63,6 +65,19 @@ export const Approvals = () => {
 
         // admins and approvers only see records for their workspaces
         const approverWorkspaces = await workspaceApi.getApproverWorkspaces(user.id);
+
+        //check if user is admin
+        const { data: adminWorkspaces } = await supabase
+          .from('workspace_users')
+          .select('workspace_id')
+          .eq('user_id', user.id)
+          .in('role', ['ADMIN', 'OWNER'])
+          .eq('status', 'APPROVED');
+
+        const adminIds = (adminWorkspaces ?? []).map(r => r.workspace_id);
+        setAdminWorkspaceIds(adminIds);
+        setIsWorkspaceAdmin(adminIds.length > 0);
+
 
         if (approverWorkspaces.length === 0) {
           setRequests([]);
@@ -146,14 +161,18 @@ export const Approvals = () => {
   };
 
   const handleExportCsv = () => {
-    if (history.length === 0) {
+    const recordsToExport = history.filter(record => {
+      const workspaceIds = record.resource?.workspace_resource?.map((wr: any) => wr.workspace_id) ?? [];
+      return workspaceIds.some(wsId => adminWorkspaceIds.includes(wsId));
+    });
+    if (recordsToExport.length === 0) {
       alert('There are no history records to export yet.');
       return;
     }
 
     void (async () => {
       const workspaceIds = Array.from(new Set(
-        history.flatMap(record => record.resource?.workspace_resource?.map((workspaceLink: { workspace_id: string }) => workspaceLink.workspace_id) ?? [])
+        recordsToExport.flatMap(record => record.resource?.workspace_resource?.map((workspaceLink: { workspace_id: string }) => workspaceLink.workspace_id) ?? [])
       ));
 
       const workspaceNameMap = new Map<string, string>();
@@ -180,7 +199,7 @@ export const Approvals = () => {
         'return_note',
       ];
 
-      const rows = history.map(record => {
+      const rows = recordsToExport.map(record => {
         const workspaceNames = (record.resource?.workspace_resource ?? [])
           .map((workspaceLink: { workspace_id: string }) => workspaceNameMap.get(workspaceLink.workspace_id) ?? workspaceLink.workspace_id)
           .filter(Boolean);

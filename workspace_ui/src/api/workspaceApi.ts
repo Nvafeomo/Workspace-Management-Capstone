@@ -332,43 +332,74 @@ export const workspaceApi = {
   },
 
   //Leave a workspace
-//Blocks if the user is the owner
-async leaveWorkspace(workspaceId: string, userId: string): Promise<void> {
-  const { data: membership, error: roleError } = await supabase
-    .from('workspace_users')
-    .select('role')
-    .eq('workspace_id', workspaceId)
-    .eq('user_id', userId)
-    .single();
-
-  if (roleError) throw roleError;
-
-  // if owner, check members and block accordingly
-  if (membership.role === 'OWNER') {
-    const { data: allMembers, error: membersError } = await supabase
+  //Blocks if the user is the owner
+  async leaveWorkspace(workspaceId: string, userId: string): Promise<void> {
+    const { data: membership, error: roleError } = await supabase
       .from('workspace_users')
-      .select('user_id')
+      .select('role')
       .eq('workspace_id', workspaceId)
-      .eq('status', 'APPROVED');
+      .eq('user_id', userId)
+      .single();
 
-    if (membersError) throw membersError;
+    if (roleError) throw roleError;
 
-    const otherMembers = (allMembers ?? []).filter(m => m.user_id !== userId);
+    // if owner, check members and block accordingly
+    if (membership.role === 'OWNER') {
+      const { data: allMembers, error: membersError } = await supabase
+        .from('workspace_users')
+        .select('user_id')
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'APPROVED');
 
-    if (otherMembers.length === 0) {
-      throw new Error('You are the only member in this workspace. Please delete the workspace instead of leaving.');
-    } else {
-      throw new Error('You must transfer ownership to another member before leaving. You can do this from Manage Members.');
+      if (membersError) throw membersError;
+
+      const otherMembers = (allMembers ?? []).filter(m => m.user_id !== userId);
+
+      if (otherMembers.length === 0) {
+        throw new Error('You are the only member in this workspace. Please delete the workspace instead of leaving.');
+      } else {
+        throw new Error('You must transfer ownership to another member before leaving. You can do this from Manage Members.');
+      }
     }
-  }
 
-  const { error } = await supabase
-    .from('workspace_users')
-    .delete()
-    .eq('workspace_id', workspaceId)
-    .eq('user_id', userId);
+    const { error } = await supabase
+      .from('workspace_users')
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId);
 
-  if (error) throw error;
-},
+    if (error) throw error;
+  },
+
+  //invite members as admin/owner from manage members page
+  async inviteMember(workspaceId: string, email: string, role: Role): Promise<void> {
+    // look up user by email
+    const { data: userRow, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (userError) throw userError;
+    if (!userRow) throw new Error('No user found with that email address.');
+
+    // check if already a member
+    const existing = await this.getMembership(workspaceId, userRow.id);
+    if (existing) throw new Error('This user is already a member of this workspace.');
+
+    // insert directly as approved
+    const { error } = await supabase
+      .from('workspace_users')
+      .insert([{
+        workspace_id: workspaceId,
+        user_id: userRow.id,
+        role,
+        status: 'APPROVED',
+        joined: new Date().toISOString()
+      }]);
+
+    if (error) throw error;
+  },
+
 
 };
