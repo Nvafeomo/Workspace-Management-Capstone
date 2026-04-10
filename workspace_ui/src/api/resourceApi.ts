@@ -2,6 +2,7 @@
 
 import { Resource } from '../types';
 import { supabase } from '../supabaseClient';
+import { auditApi } from './auditApi'; // NEW: Import Audit API
 
 export const resourceApi = {
 
@@ -11,10 +12,10 @@ export const resourceApi = {
 
     //get status from database
     const statusResult = await supabase
-      .from('resource')
-      .select('status')
-      .eq('id', id)
-      .single();
+        .from('resource')
+        .select('status')
+        .eq('id', id)
+        .single();
 
     if (statusResult.error) throw statusResult.error;
 
@@ -22,6 +23,10 @@ export const resourceApi = {
     if (statusResult.data.status === 'BORROWED' || statusResult.data.status === 'REQUESTED') {
       throw new Error(`Cannot delete a resource with status "${statusResult.data.status}". It must be returned first.`);
     }
+
+    // NEW: Grab workspace ID and user for logging before deleting links
+    const { data: wsLink } = await supabase.from('workspace_resource').select('workspace_id').eq('resource_id', id).single();
+    const { data: { user } } = await supabase.auth.getUser();
 
     // 1. DELETE REQUESTS
     // Remove any borrow requests linked to this resource
@@ -55,15 +60,20 @@ export const resourceApi = {
         .eq('id', id);
 
     if (resError) throw resError;
+
+    // NEW: Log Action
+    if (wsLink && user) {
+      await auditApi.logAction(wsLink.workspace_id, user.id, 'deleted a resource', `Resource ID: ${id}`);
+    }
   },
 
 
- // get all resources belonging to a workspace
+  // get all resources belonging to a workspace
   getByWorkspace: async (workspaceId: string): Promise<Resource[]> => {
     const { data, error } = await supabase
-      .from('workspace_resource')
-      .select('resource(*)')
-      .eq('workspace_id', workspaceId);
+        .from('workspace_resource')
+        .select('resource(*)')
+        .eq('workspace_id', workspaceId);
 
     if (error) throw error;
     return data.map((row: any) => row.resource) as Resource[];
@@ -73,10 +83,10 @@ export const resourceApi = {
   //from resource table, select resource where id matches give resource id
   getById: async (id: string): Promise<Resource> => {
     const { data, error } = await supabase
-      .from('resource')
-      .select('*')
-      .eq('id', id)
-      .single();
+        .from('resource')
+        .select('*')
+        .eq('id', id)
+        .single();
 
     if (error) throw error;
     return data as Resource;
@@ -86,10 +96,10 @@ export const resourceApi = {
   getByIdWithWorkspace: async (id: string): Promise<{ resource: Resource; workspaceId: string | null }> => {
     const resource = await resourceApi.getById(id);
     const { data: links } = await supabase
-      .from('workspace_resource')
-      .select('workspace_id')
-      .eq('resource_id', id)
-      .limit(1);
+        .from('workspace_resource')
+        .select('workspace_id')
+        .eq('resource_id', id)
+        .limit(1);
     const workspaceId = links?.[0]?.workspace_id ?? null;
     return { resource, workspaceId };
   },
@@ -99,16 +109,16 @@ export const resourceApi = {
   //inserts into resource table first, then links to workspace via workspace_resource
   create: async (resource: Omit<Resource, 'id'>, workspaceId: string): Promise<Resource> => {
     const { data, error } = await supabase
-      .from('resource')
-      .insert([{
-        name: resource.name,
-        description: resource.description,
-        status: resource.status,
-        reqApprovers: resource.reqApprovers,
-        minRole: resource.minRole ?? 'MEMBER'
-      }])
-      .select()
-      .single();
+        .from('resource')
+        .insert([{
+          name: resource.name,
+          description: resource.description,
+          status: resource.status,
+          reqApprovers: resource.reqApprovers,
+          minRole: resource.minRole ?? 'MEMBER'
+        }])
+        .select()
+        .single();
 
     if (error) {
       console.error('resource insert error:', error);
@@ -116,12 +126,18 @@ export const resourceApi = {
     }
 
     const { error: linkError } = await supabase
-      .from('workspace_resource')
-      .insert([{ workspace_id: workspaceId, resource_id: data.id }]);
+        .from('workspace_resource')
+        .insert([{ workspace_id: workspaceId, resource_id: data.id }]);
 
     if (linkError) {
       console.error('workspace_resource insert error:', linkError);
       throw linkError;
+    }
+
+    // NEW: Log Action
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await auditApi.logAction(workspaceId, user.id, 'added a new resource', `Resource: ${resource.name}`);
     }
 
     return data as Resource;
@@ -131,11 +147,11 @@ export const resourceApi = {
   //from resource table update status based on resource id
   updateStatus: async (id: string, status: Resource['status']): Promise<Resource> => {
     const { data, error } = await supabase
-      .from('resource')
-      .update({ status })
-      .eq('id', id)
-      .select()
-      .single();
+        .from('resource')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
 
     if (error) throw error;
     return data as Resource;

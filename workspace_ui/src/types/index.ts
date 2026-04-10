@@ -49,3 +49,13 @@ export interface UserFeedback {
   message: string;
   created_at?: string;
 }
+
+export interface AuditLog {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  action: string;
+  details?: string;
+  created_at: string;
+  users?: { name: string };
+}
