@@ -15,7 +15,7 @@ export const feedbackApi = {
   async getAll(): Promise<UserFeedback[]> {
     const { data, error } = await supabase
       .from('user_feedback')
-      .select('*')
+      .select('id, message, created_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;

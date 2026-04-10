@@ -6,27 +6,11 @@ create table if not exists public.user_feedback (
   created_at timestamptz not null default now()
 );
 
-do $$
-begin
-  if exists (
-    select 1
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'user_feedback'
-      and column_name = 'submitter_name'
-  ) or exists (
-    select 1
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'user_feedback'
-      and column_name = 'submitter_user_id'
-  ) then
-    execute 'update public.user_feedback set submitter_name = ''Anonymous'', submitter_user_id = null';
+alter table public.user_feedback
+  drop column if exists submitter_name;
 
-    execute 'alter table public.user_feedback drop column if exists submitter_name';
-    execute 'alter table public.user_feedback drop column if exists submitter_user_id';
-  end if;
-end $$;
+alter table public.user_feedback
+  drop column if exists submitter_user_id;
 
 alter table public.user_feedback enable row level security;
 
