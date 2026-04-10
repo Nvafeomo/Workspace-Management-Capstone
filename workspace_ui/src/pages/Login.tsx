@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { FeedbackLauncher } from '../components/FeedbackLauncher';
 import { Heading } from './Heading';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -54,9 +53,6 @@ export default function Login() {
         Don't have an account? <Link to="/signup" className="text-indigo-600 font-medium hover:underline">Create one</Link>
         </p>
       </form>
-      <div className="w-80">
-        <FeedbackLauncher />
-      </div>
     </div>
   );
 }

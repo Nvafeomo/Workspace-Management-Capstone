@@ -47,7 +47,5 @@ export interface BorrowRequest {
 export interface UserFeedback {
   id: string;
   message: string;
-  submitter_name?: string;
-  submitter_user_id?: string | null;
   created_at?: string;
 }

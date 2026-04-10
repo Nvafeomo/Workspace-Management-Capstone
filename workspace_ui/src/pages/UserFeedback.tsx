@@ -83,7 +83,7 @@ export const UserFeedbackPage = () => {
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-2">
                   <div className="text-sm font-semibold text-slate-800">
-                    From: {entry.submitter_name ?? 'Anonymous'}
+                    From: Anonymous
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <Calendar size={14} />

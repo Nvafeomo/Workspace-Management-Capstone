@@ -2,14 +2,12 @@ import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Modal } from './Modal';
 import { feedbackApi } from '../api/feedbackApi';
-import { useAuth } from '../contexts/AuthContext';
 
 interface FeedbackLauncherProps {
   buttonClassName?: string;
 }
 
 export function FeedbackLauncher({ buttonClassName }: FeedbackLauncherProps) {
-  const { user, displayName } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -22,8 +20,7 @@ export function FeedbackLauncher({ buttonClassName }: FeedbackLauncherProps) {
 
     setSubmitting(true);
     try {
-      const submitterName = displayName ?? user?.email ?? 'Anonymous';
-      await feedbackApi.submit(trimmed, submitterName, user?.id ?? null);
+      await feedbackApi.submit(trimmed);
       setMessage('');
       setIsOpen(false);
       alert('Thanks for the feedback.');

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { FeedbackLauncher } from '../components/FeedbackLauncher';
 import { Heading } from './Heading';
 import { Link } from 'react-router-dom';
 export default function Signup() {
@@ -93,9 +92,6 @@ export default function Signup() {
         
         <p className="text-center text-sm text-slate-500">Already have an account? <Link to="/login" className="text-indigo-600 font-medium hover:underline">Sign in</Link></p>
       </form>
-      <div className="w-80">
-        <FeedbackLauncher />
-      </div>
     </div>
   );
 }
