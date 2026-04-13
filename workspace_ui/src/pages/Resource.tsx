@@ -44,12 +44,12 @@ export const ResourcePage = () => {
   }, [user?.id, resource?.id]);
 
   // Generate QR code encoding the resource URL (so scanning opens this page).
-  // Always use the deployed origin so labels work when generated from localhost or preview URLs.
+  // Prefer VITE_PUBLIC_APP_ORIGIN for printed labels; otherwise use the current origin so any
+  // deployment (or dev opened via http://LAN-IP:3000) encodes a URL that actually loads this app.
   useEffect(() => {
     if (!resource?.id) return;
-    const origin = (
-      import.meta.env.VITE_PUBLIC_APP_ORIGIN || 'https://workspacemgmt.vercel.app'
-    ).replace(/\/$/, '');
+    const fromEnv = import.meta.env.VITE_PUBLIC_APP_ORIGIN?.trim();
+    const origin = (fromEnv || window.location.origin).replace(/\/$/, '');
     const url = `${origin}/resource/${resource.id}`;
     QRCode.toDataURL(url, { width: 256, margin: 2 })
       .then(setQrDataUrl)

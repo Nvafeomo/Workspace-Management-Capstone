@@ -122,7 +122,7 @@ export const Dashboard = () => {
               className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
           >
             <Plus size={20} />
-            Create Workspace
+            Creae Workspace
           </button>
         </header>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

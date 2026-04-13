@@ -3,6 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import { BrowserQRCodeReader } from '@zxing/browser';
 import { QrCode, Loader2, AlertCircle, Camera, CameraOff } from 'lucide-react';
 
+/** UUID as used in resource routes (with or without hyphens normalized by match length). */
+const RESOURCE_ID_RE = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+
+function parseResourceIdFromQrText(text: string): string | null {
+  const t = text.trim();
+  const inPath = t.match(new RegExp(`/resource/${RESOURCE_ID_RE.source}`, 'i'));
+  if (inPath?.[1]) return inPath[1];
+  const plain = t.match(new RegExp(`^${RESOURCE_ID_RE.source}$`, 'i'));
+  if (plain?.[1]) return plain[1];
+  try {
+    const u = new URL(t);
+    const fromUrl = u.pathname.match(new RegExp(`/resource/${RESOURCE_ID_RE.source}`, 'i'));
+    if (fromUrl?.[1]) return fromUrl[1];
+  } catch {
+    /* not a URL */
+  }
+  return null;
+}
+
+function getCameraBlockedMessage(): string {
+  if (typeof window !== 'undefined' && !window.isSecureContext) {
+    return (
+      'This page is not loaded over a secure context (HTTPS or http://localhost). ' +
+      'Open the app at http://localhost:3000 for in-app scanning, or use your phone’s camera app to scan the resource QR—it will open the link in the browser.'
+    );
+  }
+  return (
+    "Could not access the camera. Check permissions, or use your phone's camera app to scan the QR code instead—it will open the resource in your browser."
+  );
+}
+
 /**
  * Turn on the camera and point it at a resource QR code.
  * We read the link on the code and open that resource in the app.
@@ -36,10 +67,9 @@ export const Scan = () => {
         scannerControlsRef.current = ctrl;
         if (result) {
           const text = result.getText();
-          const match = text.match(/\/resource\/([a-f0-9-]{36})/i) ?? text.match(/^([a-f0-9-]{36})$/i);
-          const resourceId = match?.[1];
+          const resourceId = parseResourceIdFromQrText(text);
           if (resourceId) {
-            scannerControlsRef.current?.stop();
+            ctrl.stop();
             scannerControlsRef.current = null;
             navigate(`/resource/${resourceId}`, { replace: true });
           }
@@ -53,10 +83,11 @@ export const Scan = () => {
         console.error('Camera error:', err);
         setStatus('error');
         setCameraOn(false);
-        if (!navigator.mediaDevices?.getUserMedia) {
-          setErrorMessage(
-            "In-app camera requires a secure connection (HTTPS). Use your phone's camera app to scan the QR code instead—it will open the resource in your browser."
-          );
+        if (
+          typeof window !== 'undefined' &&
+          (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)
+        ) {
+          setErrorMessage(getCameraBlockedMessage());
         } else {
           setErrorMessage(err.message || 'Could not access camera. Check permissions.');
         }
@@ -72,11 +103,9 @@ export const Scan = () => {
     if (cameraOn) {
       stopCamera();
     } else {
-      if (!navigator.mediaDevices?.getUserMedia) {
+      if (typeof window !== 'undefined' && (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)) {
         setStatus('error');
-        setErrorMessage(
-          "In-app camera requires a secure connection (HTTPS). Use your phone's camera app to scan the QR code instead—it will open the resource in your browser."
-        );
+        setErrorMessage(getCameraBlockedMessage());
         return;
       }
       setCameraOn(true);
