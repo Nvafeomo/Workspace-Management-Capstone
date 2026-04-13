@@ -43,10 +43,14 @@ export const ResourcePage = () => {
     });
   }, [user?.id, resource?.id]);
 
-  // Generate QR code encoding the resource URL (so scanning opens this page)
+  // Generate QR code encoding the resource URL (so scanning opens this page).
+  // Always use the deployed origin so labels work when generated from localhost or preview URLs.
   useEffect(() => {
     if (!resource?.id) return;
-    const url = `${window.location.origin}/resource/${resource.id}`;
+    const origin = (
+      import.meta.env.VITE_PUBLIC_APP_ORIGIN || 'https://workspacemgmt.vercel.app'
+    ).replace(/\/$/, '');
+    const url = `${origin}/resource/${resource.id}`;
     QRCode.toDataURL(url, { width: 256, margin: 2 })
       .then(setQrDataUrl)
       .catch(err => console.error('QR generation failed:', err));

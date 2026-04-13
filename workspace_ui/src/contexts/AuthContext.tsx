@@ -3,12 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 
 /**
- * AuthContext provides the current user and session across the app.
- *
- * Purpose:
- * - Single source of truth for "who is logged in"
- * - Components can use useAuth() instead of calling supabase.auth everywhere
- * - Handles session persistence (refresh on page load, listen for sign in/out)
+ * Keeps track of who is signed in and shares that with the whole app.
+ * Use useAuth() anywhere you need the current user or to sign out.
  */
 
 interface AuthContextType {
@@ -16,9 +12,10 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  /** Display name from users table or metadata (first_name + last_name) */
+  /** Name we show in the header (from your profile, or your email) */
   displayName: string | null;
-  globalRole: string | null; // user's global role from the users table, used to grant master account app-wide permissions
+  /** Your role ex: admin, member, approver, owner — used to show extra menus */
+  globalRole: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,14 +29,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    // 1. Get initial session (e.g. on page load / refresh)
+    // See if someone is already logged in (including after a page refresh)
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
         if (session?.user) {
-          // Defer fetch - avoids auth lock contention with workspace API calls
+          // Load name and role right after — keeps sign-in from freezing
           const u = session.user;
           setTimeout(() => {
             fetchDisplayName(u).then(setDisplayName).catch(() => setDisplayName(null));
@@ -54,13 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       });
 
-    // 2. Listen for auth changes (sign in, sign out, token refresh)
+    // When they sign in, sign out, or the session updates, keep state in sync
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          // Defer fetch - Supabase DB calls inside this callback cause auth lock deadlock
           const u = session.user;
           setTimeout(() => {
             fetchDisplayName(u).then(setDisplayName).catch(() => setDisplayName(null));
@@ -101,9 +97,7 @@ export function useAuth() {
   return context;
 }
 
-/**
- * Fetches display name from public.users, or falls back to user_metadata / email.
- */
+/** Looks up your name in our database; if missing, uses what you typed at signup or your email. */
 async function fetchDisplayName(user: User): Promise<string | null> {
   const { data } = await supabase
     .from('users')
@@ -116,7 +110,6 @@ async function fetchDisplayName(user: User): Promise<string | null> {
     return [data.first_name, data.last_name].filter(Boolean).join(' ').trim() || null;
   }
 
-  // Fallback: auth user metadata (from signup options.data)
   const meta = user.user_metadata;
   if (meta?.first_name || meta?.last_name) {
     return [meta.first_name, meta.last_name].filter(Boolean).join(' ').trim() || null;
@@ -124,7 +117,7 @@ async function fetchDisplayName(user: User): Promise<string | null> {
   return user.email ?? null;
 }
 
-//get global role
+/** Loads your role from the users table. */
 async function fetchGlobalRole(user: User): Promise<string | null> {
   const { data } = await supabase
     .from('users')

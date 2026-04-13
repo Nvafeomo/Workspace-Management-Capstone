@@ -4,9 +4,8 @@ import { BrowserQRCodeReader } from '@zxing/browser';
 import { QrCode, Loader2, AlertCircle, Camera, CameraOff } from 'lucide-react';
 
 /**
- * Scan page: uses device camera to read QR codes.
- * When a QR is scanned, extracts the resource ID from the URL and navigates to /resource/:id.
- * QR codes encode: https://yourapp.com/resource/{resourceId}
+ * Turn on the camera and point it at a resource QR code.
+ * We read the link on the code and open that resource in the app.
  */
 export const Scan = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -54,7 +53,6 @@ export const Scan = () => {
         console.error('Camera error:', err);
         setStatus('error');
         setCameraOn(false);
-        // Handle mediaDevices undefined (HTTP on mobile) or other camera errors
         if (!navigator.mediaDevices?.getUserMedia) {
           setErrorMessage(
             "In-app camera requires a secure connection (HTTPS). Use your phone's camera app to scan the QR code instead—it will open the resource in your browser."
@@ -74,7 +72,6 @@ export const Scan = () => {
     if (cameraOn) {
       stopCamera();
     } else {
-      // Mobile browsers require HTTPS for navigator.mediaDevices; on HTTP it's undefined
       if (!navigator.mediaDevices?.getUserMedia) {
         setStatus('error');
         setErrorMessage(

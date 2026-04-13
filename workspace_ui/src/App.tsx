@@ -12,7 +12,7 @@ import { MyResources } from './pages/MyResources';
 import { ResourcePage } from './pages/Resource';
 import { Scan } from './pages/Scan';
 
-
+/** Pages that need a logged-in user. If not logged in, send them to /login. */
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -36,6 +36,7 @@ export default function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          {/* Anyone can open sign up or login */}
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
           <Route

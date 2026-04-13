@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { Heading } from './Heading';
 import { Link, useNavigate } from 'react-router-dom';
 
+/** Sign-in page: email and password, then go to the home screen if it works. */
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

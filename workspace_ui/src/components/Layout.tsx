@@ -8,13 +8,13 @@ import {
   User as UserIcon,
   Package,
   QrCode,
-  Loader2 // Added Loader2
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { workspaceApi } from '../api/workspaceApi';
-import { userApi } from '../api/userApi'; // Import our new API
+import { userApi } from '../api/userApi';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -108,11 +108,11 @@ export const Sidebar = () => {
 };
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
-  const { displayName, user, signOut } = useAuth(); // Added signOut here
+  const { displayName, user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false); // New state for loading indicator
+  const [isDeleting, setIsDeleting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -128,7 +128,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  // New handler for the deletion process
   const handleDeleteAccount = async () => {
     const confirmDelete = window.confirm(
         "Are you absolutely sure you want to delete your account? This action cannot be undone."
@@ -140,7 +139,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     try {
       await userApi.deleteAccount();
       alert("Account deleted successfully.");
-      await signOut(); // Clear local session
+      await signOut();
       navigate('/login', { replace: true });
     } catch (error: any) {
       alert(error.message || "An error occurred while deleting your account.");

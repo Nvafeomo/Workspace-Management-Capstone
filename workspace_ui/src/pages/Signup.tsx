@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { Heading } from './Heading';
 import { Link } from 'react-router-dom';
+
+/** New account: name, email, password. We send a confirmation email when sign-up succeeds. */
 export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,7 +13,6 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    //make sure passwords match
     if (password !== confirmPassword) {
       alert("Passwords do not match");
       return;
