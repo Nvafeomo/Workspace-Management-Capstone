@@ -25,7 +25,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       {/* light blue rounded background box */}
-      <div className="relative w-full max-w-10xl min-h-[600px]">
+      <div className="relative w-full max-w-9xl min-h-[800px]">
         <div className="absolute inset-0 bg-blue-100 rounded-[32px]"></div>
 
         <div className="relative flex flex-col items-center justify-center p-10">
