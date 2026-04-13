@@ -18,6 +18,8 @@ export const MyResources = () => {
   const [returningId, setReturningId] = useState<string | null>(null);
   const [pendingBorrows, setPendingBorrows] = useState<BorrowRequest[]>([]);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [returnModal, setReturnModal] = useState<{ borrowId: string; resourceId: string } | null>(null);
+  const [returnNote, setReturnNote] = useState('');
 
 
   // load all currently borrowed resources for the user
@@ -35,12 +37,13 @@ export const MyResources = () => {
 
   // return a borrowed resource, updates borrow request and resource status
   const handleReturn = async (borrowId: string, resourceId: string) => {
-    if (!window.confirm('Are you sure you want to return this resource?')) return;
     setReturningId(borrowId);
     try {
-      await borrowApi.returnResource(borrowId, resourceId);
+      await borrowApi.returnResource(borrowId, resourceId, returnNote);
       // remove from list immediately after return
       setBorrows(prev => prev.filter(b => b.id !== borrowId));
+      setReturnModal(null);
+      setReturnNote('');
       alert('Resource returned successfully!');
     } catch (error) {
       console.error(error);
@@ -172,7 +175,7 @@ export const MyResources = () => {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleReturn(borrow.id, borrow.resource_id)}
+                    onClick={() => setReturnModal({ borrowId: borrow.id, resourceId: borrow.resource_id })}
                     disabled={returningId === borrow.id}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all disabled:opacity-50"
                   >
@@ -191,6 +194,36 @@ export const MyResources = () => {
           </div>
         )}
       </div>
+      {returnModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+            <h2 className="text-xl font-bold text-slate-900">Return Resource</h2>
+            <p className="text-slate-500 text-sm">Optionally note the condition of the item before returning.</p>
+            <textarea
+              rows={3}
+              value={returnNote}
+              onChange={e => setReturnNote(e.target.value)}
+              placeholder="e.g. Minor scratch on the left side..."
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all text-sm"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setReturnModal(null); setReturnNote(''); }}
+                className="flex-1 py-2.5 rounded-xl font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleReturn(returnModal.borrowId, returnModal.resourceId)}
+                disabled={!!returningId}
+                className="flex-1 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {returningId ? <Loader2 className="animate-spin" size={18} /> : 'Confirm Return'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

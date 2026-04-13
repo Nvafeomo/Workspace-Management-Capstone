@@ -30,7 +30,7 @@ export default function Signup() {
       alert("Signup failed: " + error.message);
     } else {
       console.log("Signup successful:", data);
-      alert("Signup successful! Check your email to confirm.");
+      alert("Signup successful!");
     }
   };
 
@@ -40,7 +40,8 @@ export default function Signup() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
       <div className="mb-25">
-      <Heading />
+        <Heading />
+        <p className="mt-2 text-center text-base font-medium text-indigo-600">Manage your teams &amp; resources</p>
       </div>
       
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-lg w-80 space-y-4">

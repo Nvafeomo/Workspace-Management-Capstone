@@ -22,6 +22,7 @@ export interface Resource {
   status: 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE' | 'REQUESTED';
   reqApprovers: number;
   imageUrl?: string;
+  minRole?: 'MEMBER' | 'APPROVER' | 'ADMIN';
 }
 
 
@@ -32,10 +33,29 @@ export interface BorrowRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RETURNED';
   request_date: string;
   return_date?: string;
+  return_note?: string | null;
   updated_at?: string;
   resource?: { name: string; 
     workspace_id?: string;
     workspace_resource?: { workspace_id: string }[];
+    reqApprovers?: number;
+    minRole?: string;
  };
+  users?: { name: string };
+}
+
+export interface UserFeedback {
+  id: string;
+  message: string;
+  created_at?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  action: string;
+  details?: string;
+  created_at: string;
   users?: { name: string };
 }

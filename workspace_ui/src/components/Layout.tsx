@@ -8,13 +8,15 @@ import {
   User as UserIcon,
   Package,
   QrCode,
-  Loader2,
+  MessageCircle,
+  MessageSquare,
+  Loader2 // Added Loader2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { workspaceApi } from '../api/workspaceApi';
-import { userApi } from '../api/userApi';
+import { userApi } from '../api/userApi'; // Import our new API
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -61,11 +63,15 @@ export const Sidebar = () => {
     navigate('/login', { replace: true });
   };
 
+  const isGlobalAdmin = globalRole === 'ADMIN' || globalRole === 'MASTER';
+
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/scan', icon: QrCode, label: 'Scan QR' },
-    ...(globalRole === 'ADMIN' || globalRole === 'MASTER' || isApprover ? [{ to: '/approvals', icon: CheckSquare, label: 'Approvals' }] : []),
+    //{ to: '/scan', icon: QrCode, label: 'Scan QR' },
+    ...(isGlobalAdmin || isApprover ? [{ to: '/approvals', icon: CheckSquare, label: 'Approvals' }] : []),
     { to: '/my-resources', icon: Package, label: 'My Resources' },
+    ...(!isGlobalAdmin ? [{ to: '/give-feedback', icon: MessageCircle, label: 'Give Feedback' }] : []),
+    ...(isGlobalAdmin ? [{ to: '/user-feedback', icon: MessageSquare, label: 'View User Feedback' }] : []),
   ];
 
   return (
@@ -108,11 +114,11 @@ export const Sidebar = () => {
 };
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
-  const { displayName, user, signOut } = useAuth();
+  const { displayName, user, signOut } = useAuth(); // Added signOut here
   const navigate = useNavigate();
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false); // New state for loading indicator
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -128,6 +134,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
+  // New handler for the deletion process
   const handleDeleteAccount = async () => {
     const confirmDelete = window.confirm(
         "Are you absolutely sure you want to delete your account? This action cannot be undone."
@@ -139,7 +146,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     try {
       await userApi.deleteAccount();
       alert("Account deleted successfully.");
-      await signOut();
+      await signOut(); // Clear local session
       navigate('/login', { replace: true });
     } catch (error: any) {
       alert(error.message || "An error occurred while deleting your account.");
