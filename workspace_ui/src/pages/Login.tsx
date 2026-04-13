@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { Heading } from './Heading';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+
+/** Where we send the user after sign-in (e.g. return to a scanned /resource/:id link). */
+type LoginLocationState = { from?: { pathname: string } };
 
 /** Sign-in page: email and password, then go to the home screen if it works. */
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,7 +20,11 @@ export default function Login() {
       console.error("Login error:", error.message);
       alert("Login failed: " + error.message);
     } else {
-      navigate('/', { replace: true });
+      const state = location.state as LoginLocationState | null;
+      const path = state?.from?.pathname;
+      const safe =
+        path && path !== '/login' && path.startsWith('/') ? path : '/';
+      navigate(safe, { replace: true });
     }
   };
 

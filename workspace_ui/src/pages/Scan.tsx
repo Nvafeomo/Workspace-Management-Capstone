@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BrowserQRCodeReader } from '@zxing/browser';
-import { QrCode, Loader2, AlertCircle, Camera, CameraOff } from 'lucide-react';
+import { QrCode, Loader2, AlertCircle, Camera, CameraOff, ImagePlus } from 'lucide-react';
 
-/** UUID as used in resource routes (with or without hyphens normalized by match length). */
+/** UUID as used in resource routes. */
 const RESOURCE_ID_RE = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 
 function parseResourceIdFromQrText(text: string): string | null {
@@ -35,15 +35,64 @@ function getCameraBlockedMessage(): string {
 }
 
 /**
+ * ZXing's decodeFromVideoDevice uses facingMode: 'environment' only, which fails on most laptops
+ * (no rear camera). Try rear → front → any camera — same pattern as many scanner apps.
+ */
+async function getVideoStreamWithFallback(): Promise<MediaStream> {
+  const attempts: MediaStreamConstraints[] = [
+    { video: { facingMode: { ideal: 'environment' } } },
+    { video: { facingMode: 'environment' } },
+    { video: { facingMode: { ideal: 'user' } } },
+    { video: { facingMode: 'user' } },
+    { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: true },
+  ];
+  let lastError: unknown;
+  for (const constraints of attempts) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+function formatCameraError(err: unknown): string {
+  if (typeof window !== 'undefined' && !window.isSecureContext) {
+    return getCameraBlockedMessage();
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return getCameraBlockedMessage();
+  }
+  const e = err as { name?: string; message?: string };
+  if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') {
+    return 'Camera permission was denied. Allow camera access in your browser settings, or use “Upload QR image” below.';
+  }
+  if (e?.name === 'NotFoundError' || e?.name === 'DevicesNotFoundError') {
+    return 'No camera was found. Use “Upload QR image” to pick a photo of the code.';
+  }
+  if (e?.name === 'NotReadableError' || e?.name === 'TrackStartError') {
+    return 'The camera may be in use by another app. Close other tabs or apps using the camera and try again.';
+  }
+  if (e?.name === 'OverconstrainedError') {
+    return 'The camera could not start with the requested settings. Try “Upload QR image” or another browser.';
+  }
+  return e?.message || (err instanceof Error ? err.message : 'Could not start the camera.');
+}
+
+/**
  * Turn on the camera and point it at a resource QR code.
  * We read the link on the code and open that resource in the app.
  */
 export const Scan = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const [cameraOn, setCameraOn] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [photoBusy, setPhotoBusy] = useState(false);
   const scannerControlsRef = useRef<{ stop: () => void } | null>(null);
 
   const stopCamera = useCallback(() => {
@@ -59,41 +108,50 @@ export const Scan = () => {
     const video = videoRef.current;
     if (!video) return;
 
-    setStatus('loading');
+    let cancelled = false;
     const codeReader = new BrowserQRCodeReader();
 
-    codeReader
-      .decodeFromVideoDevice(undefined, video, (result, _err, ctrl) => {
-        scannerControlsRef.current = ctrl;
-        if (result) {
-          const text = result.getText();
-          const resourceId = parseResourceIdFromQrText(text);
-          if (resourceId) {
-            ctrl.stop();
-            scannerControlsRef.current = null;
-            navigate(`/resource/${resourceId}`, { replace: true });
-          }
+    setStatus('loading');
+    setErrorMessage('');
+
+    (async () => {
+      try {
+        const stream = await getVideoStreamWithFallback();
+        if (cancelled) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
         }
-      })
-      .then((ctrl) => {
-        scannerControlsRef.current = ctrl;
+
+        const controls = await codeReader.decodeFromStream(stream, video, (result, _err, ctrl) => {
+          scannerControlsRef.current = ctrl;
+          if (result) {
+            const text = result.getText();
+            const resourceId = parseResourceIdFromQrText(text);
+            if (resourceId) {
+              ctrl.stop();
+              scannerControlsRef.current = null;
+              navigate(`/resource/${resourceId}`, { replace: true });
+            }
+          }
+        });
+
+        if (cancelled) {
+          controls.stop();
+          return;
+        }
+        scannerControlsRef.current = controls;
         setStatus('scanning');
-      })
-      .catch((err: Error) => {
+      } catch (err: unknown) {
+        if (cancelled) return;
         console.error('Camera error:', err);
         setStatus('error');
         setCameraOn(false);
-        if (
-          typeof window !== 'undefined' &&
-          (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)
-        ) {
-          setErrorMessage(getCameraBlockedMessage());
-        } else {
-          setErrorMessage(err.message || 'Could not access camera. Check permissions.');
-        }
-      });
+        setErrorMessage(formatCameraError(err));
+      }
+    })();
 
     return () => {
+      cancelled = true;
       scannerControlsRef.current?.stop();
       scannerControlsRef.current = null;
     };
@@ -113,6 +171,31 @@ export const Scan = () => {
     }
   };
 
+  const handlePickImage = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setPhotoBusy(true);
+    setErrorMessage('');
+    const url = URL.createObjectURL(file);
+    try {
+      const reader = new BrowserQRCodeReader();
+      const result = await reader.decodeFromImageUrl(url);
+      const resourceId = parseResourceIdFromQrText(result.getText());
+      if (resourceId) {
+        navigate(`/resource/${resourceId}`);
+      } else {
+        setErrorMessage('That image does not contain a resource QR code (expected a link with /resource/…).');
+      }
+    } catch {
+      setErrorMessage('Could not read a QR code from that image. Try a sharper photo or the camera.');
+    } finally {
+      URL.revokeObjectURL(url);
+      setPhotoBusy(false);
+    }
+  };
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <header className="text-center">
@@ -123,7 +206,7 @@ export const Scan = () => {
         <p className="text-slate-500 mt-2">
           {cameraOn
             ? 'Point your camera at a resource QR code to view details or check out.'
-            : 'Tap the button below to turn on your camera and start scanning.'}
+            : 'Use the camera, or upload a photo of the QR — helpful on desktop or when the camera will not start.'}
         </p>
       </header>
 
@@ -133,6 +216,7 @@ export const Scan = () => {
           className="w-full h-full object-cover"
           muted
           playsInline
+          autoPlay
         />
         {!cameraOn && status === 'idle' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800 text-white p-6">
@@ -141,7 +225,7 @@ export const Scan = () => {
             </div>
             <p className="text-center font-medium">Camera off</p>
             <p className="text-sm text-slate-400 mt-2 text-center">
-              Turn on the camera to scan a QR code
+              Turn on the camera or upload an image below
             </p>
           </div>
         )}
@@ -163,12 +247,12 @@ export const Scan = () => {
         )}
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
         <button
           type="button"
           onClick={toggleCamera}
           className={`
-            inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors
+            inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors
             ${cameraOn
               ? 'bg-rose-600 hover:bg-rose-700 text-white'
               : 'bg-indigo-600 hover:bg-indigo-700 text-white'}
@@ -186,7 +270,28 @@ export const Scan = () => {
             </>
           )}
         </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handlePickImage}
+        />
+        <button
+          type="button"
+          disabled={photoBusy}
+          onClick={() => fileInputRef.current?.click()}
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium border-2 border-slate-200 bg-white text-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-60"
+        >
+          {photoBusy ? <Loader2 className="animate-spin" size={20} /> : <ImagePlus size={20} />}
+          Upload QR image
+        </button>
       </div>
+
+      {errorMessage && status !== 'error' && (
+        <p className="text-center text-sm text-rose-600 px-2">{errorMessage}</p>
+      )}
     </div>
   );
 };

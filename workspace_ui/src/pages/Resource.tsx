@@ -20,6 +20,13 @@ import {
 import { motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 
+/** Same role rules as Workspace “Borrow” for minRole on resources. */
+const ROLE_RANK: Record<string, number> = { MEMBER: 1, APPROVER: 2, ADMIN: 3, OWNER: 3, MASTER: 4 };
+const canActOnBorrow = (userRole: string | null, globalRole: string | null, minRole: string = 'MEMBER') => {
+  const effective = globalRole === 'MASTER' ? 'MASTER' : (userRole ?? 'MEMBER');
+  return (ROLE_RANK[effective] ?? 0) >= (ROLE_RANK[minRole] ?? 1);
+};
+
 export const ResourcePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -31,8 +38,8 @@ export const ResourcePage = () => {
   const [requesting, setRequesting] = useState(false);
   const [returning, setReturning] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { user } = useAuth() ?? { user: null };
-  const [accessDenied, setAccessDenied] = useState(false);
+  const { user, globalRole } = useAuth();
+  const [userRoleInWorkspace, setUserRoleInWorkspace] = useState<string | null>(null);
 
   // Check if current user has this resource borrowed (for Return button)
   useEffect(() => {
@@ -61,7 +68,7 @@ export const ResourcePage = () => {
 
     let cancelled = false;
     setLoading(true);
-    setAccessDenied(false);
+    setUserRoleInWorkspace(null);
 
     (async () => {
       try {
@@ -72,10 +79,12 @@ export const ResourcePage = () => {
         if (cancelled) return;
 
         if (!allowed) {
-          setAccessDenied(true);
           setResource(null);
           setWorkspaceId(null);
         } else {
+          const role = wsId ? await workspaceApi.getUserRole(wsId, user.id) : null;
+          if (cancelled) return;
+          setUserRoleInWorkspace(role ?? null);
           setResource(res);
           setWorkspaceId(wsId);
         }
@@ -252,9 +261,14 @@ export const ResourcePage = () => {
             ) : (
               <button
                 onClick={handleBorrow}
-                disabled={resource.status !== 'AVAILABLE' || requesting}
+                disabled={
+                  resource.status !== 'AVAILABLE' ||
+                  requesting ||
+                  !canActOnBorrow(userRoleInWorkspace, globalRole, resource.minRole)
+                }
                 className={`w-full py-4 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
-                  resource.status === 'AVAILABLE'
+                  resource.status === 'AVAILABLE' &&
+                  canActOnBorrow(userRoleInWorkspace, globalRole, resource.minRole)
                     ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 active:scale-[0.98]'
                     : resource.status === 'REQUESTED'
                     ? 'bg-indigo-50 text-indigo-400 cursor-not-allowed'
@@ -263,6 +277,14 @@ export const ResourcePage = () => {
               >
                 {requesting ? (
                   <Loader2 className="animate-spin" size={24} />
+                ) : resource.status === 'AVAILABLE' &&
+                  !canActOnBorrow(userRoleInWorkspace, globalRole, resource.minRole) ? (
+                  <>
+                    <AlertTriangle size={20} />
+                    {resource.minRole && resource.minRole !== 'MEMBER'
+                      ? `${resource.minRole}+ role required`
+                      : 'Cannot borrow'}
+                  </>
                 ) : resource.status === 'AVAILABLE' ? (
                   'Request to Borrow'
                 ) : resource.status === 'REQUESTED' ? (
