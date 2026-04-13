@@ -23,36 +23,53 @@ export default function Login() {
   const btnClass = "w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium transition-all duration-150 hover:bg-indigo-700 hover:scale-105 active:scale-95";
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-      <div className="mb-25">
-        <Heading />
-        <p className="mt-2 text-center text-base font-medium text-indigo-600">Manage your teams &amp; resources</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      {/* light blue rounded background box */}
+      <div className="relative w-full max-w-4xl">
+        <div className="absolute inset-0 bg-blue-100 rounded-[32px]"></div>
+
+        <div className="relative flex flex-col items-center justify-center p-10">
+          <div className="mb-25">
+            <Heading />
+            <p className="mt-2 text-center text-base font-medium text-indigo-600">
+              Manage your teams &amp; resources
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-lg w-80 space-y-4">
+            <h2 className="text-xl font-semibold text-indigo-600 text-center">Sign In</h2>
+
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass}
+              required
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={inputClass}
+              required
+            />
+
+            <button type="submit" className={btnClass}>
+              Sign In
+            </button>
+
+            <p className="text-center text-sm text-slate-500">
+              Don't have an account?{" "}
+              <Link to="/signup" className="text-indigo-600 font-medium hover:underline">
+                Create one
+              </Link>
+            </p>
+          </form>
+        </div>
       </div>
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-lg w-80 space-y-4">
-        <h2 className="text-xl font-semibold text-indigo-600 text-center">Sign In</h2>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
-          required
-        />
-        <button type="submit" className={btnClass}>
-          Sign In
-        </button>
-        <p className="text-center text-sm text-slate-500">
-        Don't have an account? <Link to="/signup" className="text-indigo-600 font-medium hover:underline">Create one</Link>
-        </p>
-      </form>
     </div>
   );
 }
