@@ -13,7 +13,8 @@ import { GiveFeedbackPage } from './pages/GiveFeedback';
 import { ResourcePage } from './pages/Resource';
 import { Scan } from './pages/Scan';
 import { UserFeedbackPage } from './pages/UserFeedback';
-import { AuditLogPage } from './pages/AuditLogPage'; // NEW: Imported the Audit Log Page
+import { AuditLogPage } from './pages/AuditLogPage'; //Audit Log Page
+import { ResetPassword } from './pages/ResetPassword'; // Reset Password Page
 
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -35,35 +36,39 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  return (
-      <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/login" element={<Login />} />
-            <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Routes>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/workspace/:id" element={<WorkspacePage />} />
-                        <Route path="/workspace/:id/manage" element={<ManageWorkspace />} />
-                        <Route path="/workspace/:id/audit-logs" element={<AuditLogPage />} /> {/* NEW: Added Audit Log Route */}
-                        <Route path="/approvals" element={<Approvals />} />
-                        <Route path="/my-resources" element={<MyResources />} />
-                        <Route path="/give-feedback" element={<GiveFeedbackPage />} />
-                        <Route path="/user-feedback" element={<UserFeedbackPage />} />
-                        <Route path="/resource/:id" element={<ResourcePage />} />
-                        <Route path="/scan" element={<Scan />} />
-                      </Routes>
-                    </Layout>
-                  </ProtectedRoute>
-                }
-            />
-          </Routes>
-        </Router>
-      </AuthProvider>
-  );
+    return (
+        <AuthProvider>
+            <Router>
+                <Routes>
+                    <Route path="/signup" element={<Signup />} />
+                    <Route path="/login" element={<Login />} />
+
+                    {/* ADD IT RIGHT HERE! */}
+                    <Route path="/reset-password" element={<ResetPassword />} />
+
+                    <Route
+                        path="/*"
+                        element={
+                            <ProtectedRoute>
+                                <Layout>
+                                    <Routes>
+                                        <Route path="/" element={<Dashboard />} />
+                                        <Route path="/workspace/:id" element={<WorkspacePage />} />
+                                        <Route path="/workspace/:id/manage" element={<ManageWorkspace />} />
+                                        <Route path="/workspace/:id/audit-logs" element={<AuditLogPage />} />
+                                        <Route path="/approvals" element={<Approvals />} />
+                                        <Route path="/my-resources" element={<MyResources />} />
+                                        <Route path="/give-feedback" element={<GiveFeedbackPage />} />
+                                        <Route path="/user-feedback" element={<UserFeedbackPage />} />
+                                        <Route path="/resource/:id" element={<ResourcePage />} />
+                                        <Route path="/scan" element={<Scan />} />
+                                    </Routes>
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
+                </Routes>
+            </Router>
+        </AuthProvider>
+    );
 }

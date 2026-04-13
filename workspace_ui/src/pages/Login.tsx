@@ -47,17 +47,25 @@ export default function Login() {
               className={inputClass}
               required
             />
+              {/* Password Input & Forgot Password Link */}
+              <div className="space-y-1">
+                  <input
+                      type="password"
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={inputClass}
+                      required
+                  />
+                  <div className="flex justify-end">
+                      <Link to="/reset-password" className="text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline">
+                          Forgot your password?
+                      </Link>
+                  </div>
+              </div>
 
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
-              required
-            />
 
-            <button type="submit" className={btnClass}>
+              <button type="submit" className={btnClass}>
               Sign In
             </button>
 

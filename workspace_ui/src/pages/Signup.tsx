@@ -29,7 +29,7 @@ export default function Signup() {
       alert("Signup failed: " + error.message);
     } else {
       console.log("Signup successful:", data);
-      alert("Signup successful! Check your email to confirm.");
+      alert("Signup successful!");
     }
   };
 
