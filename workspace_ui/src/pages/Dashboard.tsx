@@ -13,6 +13,7 @@ import {
   FolderOpen,
   AlertTriangle,
   Sparkles,
+  Search,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
@@ -33,6 +34,23 @@ function membershipBadge(
     return { label: 'Approval pending', tone: 'pending' };
   }
   return { label: 'Not joined', tone: 'join' };
+}
+
+/** Member, approver pending, or join-request pending — always listed without search */
+function showsOnDashboardWithoutSearch(
+  workspaceId: string,
+  memberships: Record<string, string | null>,
+  globalRole: string | null
+): boolean {
+  if (globalRole === 'MASTER') return true;
+  const m = memberships[workspaceId];
+  return m === 'APPROVED' || m === 'APPROVER_PENDING' || m === 'PENDING';
+}
+
+/** Workspaces you're not linked to appear only when the search matches name (substring, case-insensitive) */
+function matchesWorkspaceSearch(workspaceName: string, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return q.length > 0 && workspaceName.toLowerCase().includes(q);
 }
 
 function badgeStyles(tone: 'ok' | 'pending' | 'join' | 'master'): string {
@@ -59,6 +77,7 @@ export const Dashboard = () => {
   const [creating, setCreating] = useState(false);
   const [memberships, setMemberships] = useState<Record<string, string | null>>({});
   const [roles, setRoles] = useState<Record<string, string | null>>({});
+  const [workspaceSearch, setWorkspaceSearch] = useState('');
 
   useEffect(() => {
     if (!user?.id) return;
@@ -138,6 +157,15 @@ export const Dashboard = () => {
 
   const greetingName = displayName?.split(' ')?.[0] ?? user?.email?.split('@')?.[0] ?? 'there';
 
+  const mineWorkspaces = workspaces.filter((ws) =>
+    showsOnDashboardWithoutSearch(ws.id, memberships, globalRole)
+  );
+  const discoveryWorkspaces = workspaces.filter(
+    (ws) =>
+      !showsOnDashboardWithoutSearch(ws.id, memberships, globalRole) &&
+      matchesWorkspaceSearch(ws.name, workspaceSearch)
+  );
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-white/80 px-8 py-16 shadow-sm shadow-slate-200/50">
@@ -169,7 +197,75 @@ export const Dashboard = () => {
     );
   }
 
-  const count = workspaces.length;
+  const qTrim = workspaceSearch.trim();
+  const mineCount = mineWorkspaces.length;
+
+  const renderWorkspaceCard = (ws: Workspace, index: number) => {
+    const badge = membershipBadge(memberships, ws.id, globalRole);
+    return (
+      <motion.article
+        key={ws.id}
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.06, duration: 0.35 }}
+        className="group flex flex-col rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-200/60 transition-[box-shadow,border-color] hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100/70"
+      >
+        <div className="flex flex-1 flex-col p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${badgeStyles(badge.tone)}`}
+              >
+                {badge.label}
+              </span>
+              <h3 className="mt-3 text-xl font-bold tracking-tight text-slate-900">{ws.name}</h3>
+              <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-600">{ws.description}</p>
+            </div>
+            {(globalRole === 'MASTER' || roles[ws.id] === 'OWNER') && (
+              <button
+                type="button"
+                onClick={() => handleDeleteWorkspace(ws.id, ws.name)}
+                className="shrink-0 rounded-xl p-2.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                title="Delete workspace"
+                aria-label={`Delete workspace ${ws.name}`}
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
+          </div>
+
+          <div className="mt-auto pt-6">
+            {memberships[ws.id] === 'APPROVED' ||
+            memberships[ws.id] === 'APPROVER_PENDING' ||
+            globalRole === 'MASTER' ? (
+              <Link
+                to={`/workspace/${ws.id}`}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+              >
+                Enter workspace <ArrowRight size={18} aria-hidden />
+              </Link>
+            ) : memberships[ws.id] === 'PENDING' ? (
+              <button
+                type="button"
+                disabled
+                className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400"
+              >
+                Request pending
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleRequestJoin(ws.id)}
+                className="w-full rounded-xl border border-indigo-300 bg-indigo-50/50 py-3 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-50"
+              >
+                Request to join
+              </button>
+            )}
+          </div>
+        </div>
+      </motion.article>
+    );
+  };
 
   return (
     <div className="space-y-10">
@@ -190,8 +286,10 @@ export const Dashboard = () => {
               <div className="flex items-center gap-3 rounded-2xl border border-slate-200/90 bg-white/80 px-4 py-3 shadow-sm">
                 <Building2 className="h-5 w-5 text-indigo-500" aria-hidden />
                 <div>
-                  <dt className="text-slate-500">Workspaces visible</dt>
-                  <dd className="text-lg font-bold tabular-nums text-slate-900">{count}</dd>
+                  <dt className="text-slate-500">
+                    {globalRole === 'MASTER' ? 'All workspaces' : 'Your workspaces'}
+                  </dt>
+                  <dd className="text-lg font-bold tabular-nums text-slate-900">{mineCount}</dd>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-slate-200/90 bg-white/80 px-4 py-3 shadow-sm">
@@ -235,76 +333,87 @@ export const Dashboard = () => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {workspaces.map((ws, index) => {
-            const badge = membershipBadge(memberships, ws.id, globalRole);
-            return (
-              <motion.article
-                key={ws.id}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.06, duration: 0.35 }}
-                className="group flex flex-col rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-200/60 transition-[box-shadow,border-color] hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100/70"
-              >
-                <div className="flex flex-1 flex-col p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${badgeStyles(badge.tone)}`}
-                      >
-                        {badge.label}
-                      </span>
-                      <h3 className="mt-3 text-xl font-bold tracking-tight text-slate-900">{ws.name}</h3>
-                      <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-600">
-                        {ws.description}
-                      </p>
-                    </div>
-                    {(globalRole === 'MASTER' || roles[ws.id] === 'OWNER') && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteWorkspace(ws.id, ws.name)}
-                        className="shrink-0 rounded-xl p-2.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                        title="Delete workspace"
-                        aria-label={`Delete workspace ${ws.name}`}
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                  </div>
+        <>
+          <section
+            aria-label="Search workspaces to join"
+            className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm shadow-slate-200/50 sm:p-5"
+          >
+            <label htmlFor="workspace-search" className="sr-only">
+              Search workspaces by name to request access
+            </label>
+            <div className="relative max-w-xl">
+              <Search
+                className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+                aria-hidden
+              />
+              <input
+                id="workspace-search"
+                type="search"
+                autoComplete="off"
+                placeholder="Search by name for workspaces you’re not in yet…"
+                value={workspaceSearch}
+                onChange={(e) => setWorkspaceSearch(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-3.5 pl-12 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/15"
+              />
+            </div>
+            <p className="mt-3 max-w-xl text-xs text-slate-500 leading-relaxed">
+              Workspaces you belong to, or where a join request is pending, stay listed below. Other workspaces appear only when
+              the name matches your search.
+            </p>
+          </section>
 
-                  <div className="mt-auto pt-6">
-                    {memberships[ws.id] === 'APPROVED' ||
-                    memberships[ws.id] === 'APPROVER_PENDING' ||
-                    globalRole === 'MASTER' ? (
-                      <Link
-                        to={`/workspace/${ws.id}`}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
-                      >
-                        Enter workspace <ArrowRight size={18} aria-hidden />
-                      </Link>
-                    ) : memberships[ws.id] === 'PENDING' ? (
-                      <button
-                        type="button"
-                        disabled
-                        className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400"
-                      >
-                        Request pending
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleRequestJoin(ws.id)}
-                        className="w-full rounded-xl border border-indigo-300 bg-indigo-50/50 py-3 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-50"
-                      >
-                        Request to join
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </motion.article>
-            );
-          })}
-        </div>
+          {mineWorkspaces.length === 0 &&
+          discoveryWorkspaces.length === 0 &&
+          globalRole !== 'MASTER' && (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-8 py-12 text-center">
+              <p className="text-sm font-medium text-slate-700">
+                {qTrim.length > 0
+                  ? `No workspaces match "${qTrim}".`
+                  : 'You’re not in any workspace yet.'}
+              </p>
+              <p className="mx-auto mt-2 max-w-md text-xs text-slate-500">
+                {qTrim.length > 0
+                  ? 'Try another name or create a workspace.'
+                  : 'Use the search above to find one by name, or create your own workspace.'}
+              </p>
+            </div>
+          )}
+
+          {mineWorkspaces.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900">
+                Your workspaces{' '}
+                <span className="font-normal text-slate-500">({mineWorkspaces.length})</span>
+              </h2>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {mineWorkspaces.map((ws, index) => renderWorkspaceCard(ws, index))}
+              </div>
+            </div>
+          )}
+
+          {discoveryWorkspaces.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900">
+                Matching workspaces{' '}
+                <span className="font-normal text-slate-500">
+                  ({discoveryWorkspaces.length}
+                  {qTrim ? (
+                    <>
+                      {' '}
+                      for “<span className="font-medium text-slate-600">{qTrim}</span>”
+                    </>
+                  ) : null}
+                  )
+                </span>
+              </h2>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {discoveryWorkspaces.map((ws, index) =>
+                  renderWorkspaceCard(ws, index + mineWorkspaces.length + 10)
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create new workspace">
