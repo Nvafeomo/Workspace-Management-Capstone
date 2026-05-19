@@ -39,8 +39,8 @@ export default function Signup() {
   
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-      <div className="mb-25">
-        <Heading />
+      <div className="mb-8">
+        <Heading className="text-center" />
         <p className="mt-2 text-center text-base font-medium text-indigo-600">Manage your teams &amp; resources</p>
       </div>
       

@@ -26,7 +26,7 @@ const gardenSpace = new Workspace(
   gardenTerms,
   users,
   items,
-);
+); TESTER
 
 console.log(gardenSpace);
 console.log('The role of user 1 is ' + users[0]?.getRole("space-001"));

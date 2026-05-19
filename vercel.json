@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "npm install --prefix workspace_ui",
+  "buildCommand": "npm run build --prefix workspace_ui",
+  "outputDirectory": "workspace_ui/dist",
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/((?!assets/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
