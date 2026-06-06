@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
+import { WorkspaceReservations } from '../components/WorkspaceReservations';
+import { isReservableWorkspace, workspaceTypeLabel, workspaceTypeStyle } from '../utils/workspaceLabels';
 
 // Status Badge Component
 const StatusBadge = ({ status }: { status: Resource['status'] }) => {
@@ -280,6 +282,9 @@ export const WorkspacePage = () => {
               <div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">{workspace.name}</h1>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${workspaceTypeStyle(workspace.workspace_type)}`}>
+                    {workspaceTypeLabel(workspace.workspace_type)}
+                  </span>
                   {userRole === 'ADMIN' || userRole === 'OWNER' && (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
                     {userRole === 'OWNER' ? 'Owner' : 'Admin'}
@@ -307,6 +312,18 @@ export const WorkspacePage = () => {
                   )}
                 </div>
                 <p className="text-slate-500 mt-2 text-lg max-w-2xl">{workspace.description}</p>
+                {(workspace.departments?.name || workspace.building || workspace.room_number || workspace.capacity) && (
+                  <p className="mt-2 text-sm text-slate-500">
+                    {[
+                      workspace.departments?.name,
+                      workspace.building,
+                      workspace.room_number && `Room ${workspace.room_number}`,
+                      workspace.capacity && `Capacity ${workspace.capacity}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
               </div>
             </div>
             {/* Actions: Filter & Add Button */}
@@ -363,7 +380,22 @@ export const WorkspacePage = () => {
             </div>
           </header>
 
+          {isReservableWorkspace(workspace.workspace_type) && user?.id && (
+            <WorkspaceReservations
+              workspace={workspace}
+              userId={user.id}
+              canBook={
+                globalRole === 'MASTER' ||
+                memberStatus === 'APPROVED' ||
+                memberStatus === 'APPROVER_PENDING'
+              }
+            />
+          )}
+
           {/* Resources Grid */}
+          {isReservableWorkspace(workspace.workspace_type) && (
+            <h2 className="text-lg font-bold text-slate-900">Equipment & resources</h2>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredResources.map((res, index) => (
                 <motion.div

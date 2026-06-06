@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import { Workspace } from '../types';
+import { Workspace, CreateWorkspaceInput } from '../types';
 import type { Role } from '../types';
 import { auditApi } from './auditApi'; // NEW: Import Audit API
 
@@ -12,7 +12,7 @@ export const workspaceApi = {
   async getAll(): Promise<Workspace[]> {
     const { data, error } = await supabase
         .from('workspaces')
-        .select('*');
+        .select('*, departments(id, name, code)');
 
     if (error) throw error;
 
@@ -37,13 +37,26 @@ export const workspaceApi = {
    * Create a workspace and add the creator as ADMIN in workspace_users.
    */
   async create(
-      workspace: { name: string; description: string },
+      workspace: CreateWorkspaceInput,
       userId: string
   ): Promise<Workspace> {
+    const payload = {
+      name: workspace.name,
+      description: workspace.description,
+      workspace_type: workspace.workspace_type ?? 'EQUIPMENT',
+      department_id: workspace.department_id ?? null,
+      building: workspace.building?.trim() || null,
+      room_number: workspace.room_number?.trim() || null,
+      capacity: workspace.capacity ?? null,
+      min_booking_minutes: workspace.min_booking_minutes ?? 30,
+      max_booking_minutes: workspace.max_booking_minutes ?? 480,
+      reservation_requires_approval: workspace.reservation_requires_approval ?? false,
+    };
+
     const { data: created, error: insertError } = await supabase
         .from('workspaces')
-        .insert([workspace])
-        .select()
+        .insert([payload])
+        .select('*, departments(id, name, code)')
         .single();
 
     if (insertError) throw insertError;
@@ -70,7 +83,7 @@ export const workspaceApi = {
   async getById(id: string): Promise<Workspace> {
     const { data, error } = await supabase
         .from('workspaces')
-        .select('*')
+        .select('*, departments(id, name, code)')
         .eq('id', id)
         .single();
 

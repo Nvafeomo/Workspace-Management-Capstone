@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { borrowApi } from '../api/borrowApi';
+import { reservationApi } from '../api/reservationApi';
 import { workspaceApi } from '../api/workspaceApi';
 import { useAuth } from '../contexts/AuthContext';
-import { BorrowRequest } from '../types';
+import { BorrowRequest, Reservation } from '../types';
 import { supabase } from '../supabaseClient';
 import { 
   Check, 
@@ -30,9 +31,11 @@ function formatCsvDate(value?: string) {
 export const Approvals = () => {
   const { user, globalRole } = useAuth();
   const [requests, setRequests] = useState<BorrowRequest[]>([]);
+  const [reservationRequests, setReservationRequests] = useState<Reservation[]>([]);
   const [history, setHistory] = useState<BorrowRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [processingReservationId, setProcessingReservationId] = useState<string | null>(null);
   const [approvalCounts, setApprovalCounts] = useState<Record<string, number>>({});
   const [isWorkspaceAdmin, setIsWorkspaceAdmin] = useState(false);
   const canExportLogs = globalRole === 'MASTER' || isWorkspaceAdmin;
@@ -45,12 +48,14 @@ export const Approvals = () => {
       try {
         // master sees all pending requests and full history
         if (globalRole === 'MASTER') {
-          const [pendingData, historyData] = await Promise.all([
+          const [pendingData, historyData, pendingReservations] = await Promise.all([
             borrowApi.getApprovals(),
-            borrowApi.getHistory()
+            borrowApi.getHistory(),
+            reservationApi.getPendingForApprover(),
           ]);
           const filtered = pendingData.filter(r => r.status === 'PENDING');
           setRequests(filtered);
+          setReservationRequests(pendingReservations);
 
           const counts: Record<string, number> = {};
           await Promise.all(filtered.map(async (req: BorrowRequest) => {
@@ -81,14 +86,16 @@ export const Approvals = () => {
 
         if (approverWorkspaces.length === 0) {
           setRequests([]);
+          setReservationRequests([]);
           setHistory([]);
           setLoading(false);
           return;
         }
 
-        const [pendingData, historyData] = await Promise.all([
+        const [pendingData, historyData, pendingReservations] = await Promise.all([
           borrowApi.getApprovals(),
-          borrowApi.getHistory()
+          borrowApi.getHistory(),
+          reservationApi.getPendingForApprover(),
         ]);
 
         const isInManagedWorkspace = (record: BorrowRequest) => {
@@ -100,6 +107,9 @@ export const Approvals = () => {
         const filteredHistory = historyData.filter(isInManagedWorkspace);
 
         setRequests(filteredPending);
+        setReservationRequests(
+          pendingReservations.filter((r) => approverWorkspaces.includes(r.workspace_id))
+        );
         const counts: Record<string, number> = {};
         await Promise.all(filteredPending.map(async (req: BorrowRequest) => {
           counts[req.id] = await borrowApi.getApprovalCount(req.id);
@@ -116,6 +126,21 @@ export const Approvals = () => {
 
     loadApprovals();
   }, [user?.id, globalRole]);
+
+  const handleReservationAction = async (id: string, decision: 'CONFIRMED' | 'REJECTED') => {
+    if (!user?.id) return;
+    setProcessingReservationId(id);
+    try {
+      await reservationApi.review(id, user.id, decision);
+      setReservationRequests((prev) => prev.filter((r) => r.id !== id));
+      alert(decision === 'CONFIRMED' ? 'Reservation confirmed.' : 'Reservation rejected.');
+    } catch (error: unknown) {
+      const msg = error && typeof error === 'object' && 'message' in error ? String((error as Error).message) : 'Failed to process reservation.';
+      alert(msg);
+    } finally {
+      setProcessingReservationId(null);
+    }
+  };
 
   const handleAction = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     setProcessingId(id);
@@ -233,9 +258,49 @@ export const Approvals = () => {
     <div className="space-y-8">
       <header>
         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Pending Approvals</h1>
-        <p className="text-slate-500 mt-2 text-lg">Review and manage resource borrowing requests from users.</p>
+        <p className="text-slate-500 mt-2 text-lg">Review room reservations and equipment borrow requests.</p>
       </header>
 
+      {reservationRequests.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-bold text-slate-900">Room & lab reservations</h2>
+          <div className="grid grid-cols-1 gap-4">
+            {reservationRequests.map((res) => (
+              <div
+                key={res.id}
+                className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6"
+              >
+                <div className="space-y-1">
+                  <h3 className="font-bold text-slate-900 text-lg">{res.workspaces?.name ?? 'Workspace'}</h3>
+                  <p className="text-sm text-slate-600">
+                    {res.users?.name} · {new Date(res.start_time).toLocaleString()} – {new Date(res.end_time).toLocaleString()}
+                  </p>
+                  {res.purpose && <p className="text-sm text-slate-500">{res.purpose}</p>}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleReservationAction(res.id, 'REJECTED')}
+                    disabled={processingReservationId === res.id}
+                    className="px-6 py-2.5 rounded-xl font-bold text-rose-600 border border-rose-200 hover:bg-rose-50 disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => handleReservationAction(res.id, 'CONFIRMED')}
+                    disabled={processingReservationId === res.id}
+                    className="px-6 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {processingReservationId === res.id ? <Loader2 className="animate-spin inline" size={18} /> : 'Confirm'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-bold text-slate-900">Equipment borrow requests</h2>
       {requests.length === 0 ? (
         <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-20 text-center">
           <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
@@ -307,6 +372,7 @@ export const Approvals = () => {
           </AnimatePresence>
         </div>
       )}
+      </section>
 
       <section className="space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">

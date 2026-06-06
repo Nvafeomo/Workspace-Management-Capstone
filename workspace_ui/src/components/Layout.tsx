@@ -7,6 +7,7 @@ import {
   LogOut,
   User as UserIcon,
   Package,
+  Calendar,
   QrCode,
   MessageCircle,
   MessageSquare,
@@ -70,6 +71,7 @@ export const Sidebar = () => {
     //{ to: '/scan', icon: QrCode, label: 'Scan QR' },
     ...(isGlobalAdmin || isApprover ? [{ to: '/approvals', icon: CheckSquare, label: 'Approvals' }] : []),
     { to: '/my-resources', icon: Package, label: 'My Resources' },
+    { to: '/my-reservations', icon: Calendar, label: 'My Reservations' },
     ...(!isGlobalAdmin ? [{ to: '/give-feedback', icon: MessageCircle, label: 'Give Feedback' }] : []),
     ...(isGlobalAdmin ? [{ to: '/user-feedback', icon: MessageSquare, label: 'View User Feedback' }] : []),
   ];
@@ -82,8 +84,8 @@ export const Sidebar = () => {
               <Box size={24} />
             </div>
             <div>
-              <h1 className="font-bold text-slate-900 leading-tight">Workspace</h1>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Manager</p>
+              <h1 className="font-bold text-slate-900 leading-tight">Campus</h1>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Spaces</p>
             </div>
           </div>
         </div>
@@ -162,7 +164,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         <main className="flex-1 flex flex-col">
           <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10 print:hidden">
             <div className="flex items-center gap-4">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Workspace Management</h2>
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest">University Workspace Platform</h2>
             </div>
             <div className="flex items-center gap-4 relative" ref={dropdownRef}>
               <button

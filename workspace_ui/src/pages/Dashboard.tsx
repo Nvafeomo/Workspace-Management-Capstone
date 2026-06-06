@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { workspaceApi } from '../api/workspaceApi';
-import { Workspace } from '../types';
+import { departmentApi } from '../api/departmentApi';
+import { Workspace, WorkspaceType, Department, CreateWorkspaceInput } from '../types';
+import { workspaceTypeLabel, workspaceTypeStyle } from '../utils/workspaceLabels';
 import {
   Loader2,
   Plus,
@@ -73,11 +75,30 @@ export const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newWorkspace, setNewWorkspace] = useState({ name: '', description: '' });
+  const defaultWorkspaceForm = (): CreateWorkspaceInput => ({
+    name: '',
+    description: '',
+    workspace_type: 'EQUIPMENT',
+    department_id: null,
+    building: '',
+    room_number: '',
+    capacity: null,
+    min_booking_minutes: 30,
+    max_booking_minutes: 480,
+    reservation_requires_approval: false,
+  });
+  const [newWorkspace, setNewWorkspace] = useState<CreateWorkspaceInput>(defaultWorkspaceForm());
   const [creating, setCreating] = useState(false);
   const [memberships, setMemberships] = useState<Record<string, string | null>>({});
   const [roles, setRoles] = useState<Record<string, string | null>>({});
   const [workspaceSearch, setWorkspaceSearch] = useState('');
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [typeFilter, setTypeFilter] = useState<WorkspaceType | 'ALL'>('ALL');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
+
+  useEffect(() => {
+    departmentApi.getAll().then(setDepartments).catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -119,7 +140,7 @@ export const Dashboard = () => {
       setMemberships((prev) => ({ ...prev, [created.id]: 'APPROVED' }));
       setRoles((prev) => ({ ...prev, [created.id]: 'ADMIN' }));
       setIsModalOpen(false);
-      setNewWorkspace({ name: '', description: '' });
+      setNewWorkspace(defaultWorkspaceForm());
     } catch (err) {
       console.error(err);
     } finally {
@@ -157,13 +178,20 @@ export const Dashboard = () => {
 
   const greetingName = displayName?.split(' ')?.[0] ?? user?.email?.split('@')?.[0] ?? 'there';
 
-  const mineWorkspaces = workspaces.filter((ws) =>
-    showsOnDashboardWithoutSearch(ws.id, memberships, globalRole)
+  const matchesFilters = (ws: Workspace) => {
+    if (typeFilter !== 'ALL' && (ws.workspace_type ?? 'EQUIPMENT') !== typeFilter) return false;
+    if (departmentFilter !== 'ALL' && ws.department_id !== departmentFilter) return false;
+    return true;
+  };
+
+  const mineWorkspaces = workspaces.filter(
+    (ws) => showsOnDashboardWithoutSearch(ws.id, memberships, globalRole) && matchesFilters(ws)
   );
   const discoveryWorkspaces = workspaces.filter(
     (ws) =>
       !showsOnDashboardWithoutSearch(ws.id, memberships, globalRole) &&
-      matchesWorkspaceSearch(ws.name, workspaceSearch)
+      matchesWorkspaceSearch(ws.name, workspaceSearch) &&
+      matchesFilters(ws)
   );
 
   if (loading) {
@@ -213,12 +241,26 @@ export const Dashboard = () => {
         <div className="flex flex-1 flex-col p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${badgeStyles(badge.tone)}`}
-              >
-                {badge.label}
-              </span>
+              <div className="flex flex-wrap gap-2">
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${badgeStyles(badge.tone)}`}
+                >
+                  {badge.label}
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${workspaceTypeStyle(ws.workspace_type)}`}
+                >
+                  {workspaceTypeLabel(ws.workspace_type)}
+                </span>
+              </div>
               <h3 className="mt-3 text-xl font-bold tracking-tight text-slate-900">{ws.name}</h3>
+              {(ws.departments?.name || ws.building) && (
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  {[ws.departments?.name, ws.building, ws.room_number && `Room ${ws.room_number}`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              )}
               <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-600">{ws.description}</p>
             </div>
             {(globalRole === 'MASTER' || roles[ws.id] === 'OWNER') && (
@@ -280,7 +322,7 @@ export const Dashboard = () => {
               Hi {greetingName}, pick where you’re working today
             </h1>
             <p className="mt-4 text-lg text-slate-600 leading-relaxed">
-              Open a workspace to manage resources and equipment, or create a new hub for your team.
+              Reserve rooms and labs, borrow shared equipment, and manage department workspaces across campus.
             </p>
             <dl className="mt-8 flex flex-wrap gap-6 text-sm">
               <div className="flex items-center gap-3 rounded-2xl border border-slate-200/90 bg-white/80 px-4 py-3 shadow-sm">
@@ -335,9 +377,33 @@ export const Dashboard = () => {
       ) : (
         <>
           <section
-            aria-label="Search workspaces to join"
-            className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm shadow-slate-200/50 sm:p-5"
+            aria-label="Search and filter workspaces"
+            className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm shadow-slate-200/50 sm:p-5 space-y-4"
           >
+            <div className="flex flex-wrap gap-3">
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as WorkspaceType | 'ALL')}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15"
+              >
+                <option value="ALL">All types</option>
+                <option value="ROOM">Rooms</option>
+                <option value="LAB">Labs</option>
+                <option value="EQUIPMENT">Equipment</option>
+              </select>
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15"
+              >
+                <option value="ALL">All departments</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.code})
+                  </option>
+                ))}
+              </select>
+            </div>
             <label htmlFor="workspace-search" className="sr-only">
               Search workspaces by name to request access
             </label>
@@ -416,8 +482,8 @@ export const Dashboard = () => {
         </>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create new workspace">
-        <form onSubmit={handleCreateWorkspace} className="space-y-4">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create campus workspace">
+        <form onSubmit={handleCreateWorkspace} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           <div className="space-y-1">
             <label className="text-sm font-bold text-slate-700">Workspace name</label>
             <input
@@ -427,10 +493,109 @@ export const Dashboard = () => {
               onChange={(e) =>
                 setNewWorkspace((prev) => ({ ...prev, name: e.target.value }))
               }
-              placeholder="e.g. Robotics Lab"
+              placeholder="e.g. Engineering Lab B, Study Room 204"
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition-all focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
             />
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-bold text-slate-700">Type</label>
+              <select
+                value={newWorkspace.workspace_type}
+                onChange={(e) =>
+                  setNewWorkspace((prev) => ({
+                    ...prev,
+                    workspace_type: e.target.value as WorkspaceType,
+                  }))
+                }
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+              >
+                <option value="ROOM">Room (reservable)</option>
+                <option value="LAB">Lab (reservable + equipment)</option>
+                <option value="EQUIPMENT">Equipment pool (borrow only)</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-bold text-slate-700">Department</label>
+              <select
+                value={newWorkspace.department_id ?? ''}
+                onChange={(e) =>
+                  setNewWorkspace((prev) => ({
+                    ...prev,
+                    department_id: e.target.value || null,
+                  }))
+                }
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+              >
+                <option value="">No department</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {(newWorkspace.workspace_type === 'ROOM' || newWorkspace.workspace_type === 'LAB') && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-bold text-slate-700">Building</label>
+                  <input
+                    type="text"
+                    value={newWorkspace.building ?? ''}
+                    onChange={(e) =>
+                      setNewWorkspace((prev) => ({ ...prev, building: e.target.value }))
+                    }
+                    placeholder="e.g. Science Hall"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-bold text-slate-700">Room number</label>
+                  <input
+                    type="text"
+                    value={newWorkspace.room_number ?? ''}
+                    onChange={(e) =>
+                      setNewWorkspace((prev) => ({ ...prev, room_number: e.target.value }))
+                    }
+                    placeholder="e.g. 204"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-bold text-slate-700">Capacity</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={newWorkspace.capacity ?? ''}
+                  onChange={(e) =>
+                    setNewWorkspace((prev) => ({
+                      ...prev,
+                      capacity: e.target.value ? Number(e.target.value) : null,
+                    }))
+                  }
+                  placeholder="Max occupants"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={newWorkspace.reservation_requires_approval ?? false}
+                  onChange={(e) =>
+                    setNewWorkspace((prev) => ({
+                      ...prev,
+                      reservation_requires_approval: e.target.checked,
+                    }))
+                  }
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Reservations require approver sign-off
+              </label>
+            </>
+          )}
           <div className="space-y-1">
             <label className="text-sm font-bold text-slate-700">Description</label>
             <textarea

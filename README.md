@@ -58,6 +58,17 @@ This contains everything you need to run the app locally.
 
 ---
 
+## University platform upgrade (Supabase)
+
+Before using rooms, labs, departments, or reservations in the UI, run the SQL migration:
+
+1. Open [workspace_ui/supabase/README.md](workspace_ui/supabase/README.md) for full instructions.
+2. In Supabase Dashboard → **SQL Editor**, run `workspace_ui/supabase/university_upgrade.sql`.
+
+You do **not** need to export data first unless you have production data you want backed up. The migration is additive and keeps existing workspaces as equipment pools.
+
+---
+
 ## Supabase dependencies (project root)
 
 If you need to install Supabase-related packages:
