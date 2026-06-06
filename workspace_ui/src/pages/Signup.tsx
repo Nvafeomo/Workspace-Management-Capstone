@@ -1,98 +1,216 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Heading } from './Heading';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, User, Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { AuthLayout } from '../components/auth/AuthLayout';
+import {
+  authInputWrap,
+  authInput,
+  authLabel,
+  authSubmitBtn,
+} from '../components/auth/authStyles';
 
-/** New account: name, email, password. We send a confirmation email when sign-up succeeds. */
 export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
+
     if (password !== confirmPassword) {
-      alert("Passwords do not match");
+      setSubmitError('Passwords do not match.');
       return;
     }
-    const { data, error } = await supabase.auth.signUp({
+    if (password.length < 6) {
+      setSubmitError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setSubmitting(true);
+    const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: {
-        first_name: firstName,
-        last_name: lastName,
-      } },
+      options: {
+        data: { first_name: firstName, last_name: lastName },
+      },
     });
+    setSubmitting(false);
+
     if (error) {
-      console.error("Signup error:", error.message);
-      alert("Signup failed: " + error.message);
+      setSubmitError(error.message);
     } else {
-      console.log("Signup successful:", data);
-      alert("Signup successful!");
+      setSuccess(true);
     }
   };
 
-  const inputClass = "w-full border border-slate-200 rounded-lg px-3 py-2";
-  const btnClass = "w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium transition-all duration-150 hover:bg-indigo-700 hover:scale-105 active:scale-95";
-  
+  if (success) {
+    return (
+      <AuthLayout
+        cardTitle="Check your inbox"
+        cardSubtitle="We sent a confirmation link if your campus requires email verification."
+      >
+        <div className="space-y-6 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 ring-1 ring-emerald-400/30">
+            <CheckCircle2 className="h-8 w-8 text-emerald-400" aria-hidden />
+          </div>
+          <p className="text-sm leading-relaxed text-slate-400">
+            Account created for <span className="font-medium text-slate-200">{email}</span>.
+            Confirm your email if prompted, then sign in.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className={authSubmitBtn}
+          >
+            Go to sign in
+            <ArrowRight className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+      </AuthLayout>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-      <div className="mb-8">
-        <Heading className="text-center" />
-        <p className="mt-2 text-center text-base font-medium text-indigo-600">Manage your teams &amp; resources</p>
-      </div>
-      
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-lg w-80 space-y-4">
-        
-        <h2 className="text-xl font-semibold text-indigo-600 text-center">Create Account</h2>
-        <input
-          type="text"
-          placeholder="First Name"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          className={inputClass}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Last Name"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          className={inputClass}
-          required
-        />
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className={inputClass}
-        />
-        <input
-          type="password"
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className={inputClass}
-          required
-        />
-        <button type="submit" className={btnClass}>
-          Sign Up
+    <AuthLayout
+      cardTitle="Create your account"
+      cardSubtitle="Join your department workspaces to reserve labs and borrow equipment."
+      backTo={{ label: 'Back to sign in', to: '/login' }}
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {submitError && (
+          <div
+            role="alert"
+            className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+          >
+            {submitError}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label htmlFor="signup-first" className={authLabel}>
+              First name
+            </label>
+            <div className={authInputWrap}>
+              <User className="h-5 w-5 shrink-0 text-slate-500" aria-hidden />
+              <input
+                id="signup-first"
+                type="text"
+                autoComplete="given-name"
+                placeholder="First"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className={authInput}
+                required
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="signup-last" className={authLabel}>
+              Last name
+            </label>
+            <div className={authInputWrap}>
+              <input
+                id="signup-last"
+                type="text"
+                autoComplete="family-name"
+                placeholder="Last"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className={authInput}
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="signup-email" className={authLabel}>
+            Campus email
+          </label>
+          <div className={authInputWrap}>
+            <Mail className="h-5 w-5 shrink-0 text-slate-500" aria-hidden />
+            <input
+              id="signup-email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@university.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={authInput}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="signup-password" className={authLabel}>
+            Password
+          </label>
+          <div className={authInputWrap}>
+            <Lock className="h-5 w-5 shrink-0 text-slate-500" aria-hidden />
+            <input
+              id="signup-password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="At least 6 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={authInput}
+              required
+              minLength={6}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="signup-confirm" className={authLabel}>
+            Confirm password
+          </label>
+          <div className={authInputWrap}>
+            <Lock className="h-5 w-5 shrink-0 text-slate-500" aria-hidden />
+            <input
+              id="signup-confirm"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Repeat password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className={authInput}
+              required
+            />
+          </div>
+        </div>
+
+        <button type="submit" disabled={submitting} className={authSubmitBtn}>
+          {submitting ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+              Creating account…
+            </>
+          ) : (
+            <>
+              Create account
+              <ArrowRight className="h-5 w-5 transition group-hover:translate-x-0.5" aria-hidden />
+            </>
+          )}
         </button>
-        
-        <p className="text-center text-sm text-slate-500">Already have an account? <Link to="/login" className="text-indigo-600 font-medium hover:underline">Sign in</Link></p>
+
+        <p className="text-center text-sm text-slate-400">
+          Already have an account?{' '}
+          <Link to="/login" className="font-semibold text-indigo-300 hover:text-white">
+            Sign in
+          </Link>
+        </p>
       </form>
-    </div>
+    </AuthLayout>
   );
 }
