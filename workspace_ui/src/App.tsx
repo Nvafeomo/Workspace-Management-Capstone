@@ -10,7 +10,6 @@ import Login from './pages/Login';
 import { ManageWorkspace } from './pages/ManageWorkspace';
 import { MyResources } from './pages/MyResources';
 import { MyReservations } from './pages/MyReservations';
-import { GiveFeedbackPage } from './pages/GiveFeedback';
 import { ResourcePage } from './pages/Resource';
 import { Scan } from './pages/Scan';
 import { UserFeedbackPage } from './pages/UserFeedback';
@@ -62,7 +61,6 @@ export default function App() {
                                         <Route path="/approvals" element={<Approvals />} />
                                         <Route path="/my-resources" element={<MyResources />} />
                                         <Route path="/my-reservations" element={<MyReservations />} />
-                                        <Route path="/give-feedback" element={<GiveFeedbackPage />} />
                                         <Route path="/user-feedback" element={<UserFeedbackPage />} />
                                         <Route path="/resource/:id" element={<ResourcePage />} />
                                         <Route path="/scan" element={<Scan />} />

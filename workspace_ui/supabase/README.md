@@ -44,6 +44,3 @@ grant execute on function public.has_reservation_conflict(uuid, timestamptz, tim
 | `LAB` | Teaching/research labs — reservations + equipment |
 | `EQUIPMENT` | Shared gear pools — existing borrow/approval flow |
 
-### Editing seed departments
-
-Change the `INSERT` block at the bottom of `university_upgrade.sql` to match your university, or add departments later as a platform `ADMIN` / `MASTER` in the app.

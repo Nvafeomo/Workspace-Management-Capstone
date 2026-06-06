@@ -9,7 +9,6 @@ import {
   Package,
   Calendar,
   QrCode,
-  MessageCircle,
   MessageSquare,
   Loader2 // Added Loader2
 } from 'lucide-react';
@@ -72,7 +71,6 @@ export const Sidebar = () => {
     ...(isGlobalAdmin || isApprover ? [{ to: '/approvals', icon: CheckSquare, label: 'Approvals' }] : []),
     { to: '/my-resources', icon: Package, label: 'My Resources' },
     { to: '/my-reservations', icon: Calendar, label: 'My Reservations' },
-    ...(!isGlobalAdmin ? [{ to: '/give-feedback', icon: MessageCircle, label: 'Give Feedback' }] : []),
     ...(isGlobalAdmin ? [{ to: '/user-feedback', icon: MessageSquare, label: 'View User Feedback' }] : []),
   ];
 
