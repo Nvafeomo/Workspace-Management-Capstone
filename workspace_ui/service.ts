@@ -1,7 +1,5 @@
 
 import { Workspace } from "../src/entities/workspace/workspace.entity";
-import { User } from "../src/entities/user/user.entity";
-import { Resource } from "../src/entities/resource/resource.entity";
 import { supabase } from './src/supabaseClient'
 
 export async function createWorkspace(name: string, description: string) {
