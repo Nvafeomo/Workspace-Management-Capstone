@@ -8,7 +8,6 @@ import {
   User as UserIcon,
   Package,
   Calendar,
-  QrCode,
   MessageSquare,
   Loader2 // Added Loader2
 } from 'lucide-react';
