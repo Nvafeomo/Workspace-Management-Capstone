@@ -119,22 +119,6 @@ export const ManageWorkspace = () => {
   //roles that can see the role change drop down menu
   const canManageRoles = globalRole === 'MASTER' || myRole === 'ADMIN' || myRole === 'OWNER';
 
-  const handleAssignSuccessor = async (userId: string) => {
-    if (!id) return;
-    setProcessingId(userId);
-    try {
-      await workspaceApi.assignSuccessor(id, userId);
-      const updated = await workspaceApi.getMembers(id);
-      setMembers(updated);
-      alert('Successor assigned as ADMIN.');
-    } catch (error) {
-      console.error(error);
-      alert('Failed to assign successor.');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
   //handles inviting people to workspace
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
