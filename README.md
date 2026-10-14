@@ -206,6 +206,7 @@ There is no standalone REST server. The UI calls Supabase tables and RPCs throug
 | `reservationApi` | List/create/cancel reservations; approver review via RPC |
 | `departmentApi` | List/create departments |
 | `auditApi` | Append and fetch per-workspace activity logs |
+| `userApi` | Self-service account deletion via the `delete_user_account` RPC |
 
 ---
 
