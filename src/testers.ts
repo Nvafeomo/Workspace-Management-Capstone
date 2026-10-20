@@ -1,4 +1,3 @@
-import { Workspace } from "./entities/workspace/workspace.entity";
 import { User } from "./entities/user/user.entity";
 import { Resource } from "./entities/resource/resource.entity";
 import { supabase } from '../supabaseClient'
