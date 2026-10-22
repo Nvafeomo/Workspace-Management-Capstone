@@ -12,16 +12,19 @@ const STYLES: Record<WorkspaceType, string> = {
   EQUIPMENT: 'bg-amber-100 text-amber-800 ring-amber-200/70',
 };
 
+/** Human-readable label for a workspace type; unknown or missing types fall back to "Equipment". */
 export function workspaceTypeLabel(type?: WorkspaceType | string | null): string {
   if (!type || !(type in LABELS)) return LABELS.EQUIPMENT;
   return LABELS[type as WorkspaceType];
 }
 
+/** Tailwind badge classes for a workspace type; unknown or missing types use the Equipment style. */
 export function workspaceTypeStyle(type?: WorkspaceType | string | null): string {
   if (!type || !(type in STYLES)) return STYLES.EQUIPMENT;
   return STYLES[type as WorkspaceType];
 }
 
+/** Whether a workspace type can be reserved (only rooms and labs). */
 export function isReservableWorkspace(type?: WorkspaceType | string | null): boolean {
   return type === 'ROOM' || type === 'LAB';
 }
