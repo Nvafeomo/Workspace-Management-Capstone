@@ -278,16 +278,14 @@ export const workspaceApi = {
         .eq('workspace_id', workspaceId);
 
     const resourceIds = (resourceLinks ?? []).map((r: any) => r.resource_id);
-    console.log('resource ids to delete:', resourceIds);
 
     //delete borrow_requests for those resources
     if (resourceIds.length > 0) {
-      const { data, error: borrowError } = await supabase
+      const { error: borrowError } = await supabase
           .from('borrow_request')
           .delete()
           .in('resource_id', resourceIds)
           .select();
-      console.log('step 1 - delete borrow requests:', data, borrowError);
       if (borrowError) throw borrowError;
     }
 
@@ -296,7 +294,6 @@ export const workspaceApi = {
         .from('workspace_resource')
         .delete()
         .eq('workspace_id', workspaceId);
-    console.log('step 2 - delete workspace links:', linkError);
     if (linkError) throw linkError;
 
     //delete the resources themselves
@@ -305,7 +302,6 @@ export const workspaceApi = {
           .from('resource')
           .delete()
           .in('id', resourceIds);
-      console.log('step 3 - delete resources:', resourceError);
       if (resourceError) throw resourceError;
     }
 
@@ -314,14 +310,12 @@ export const workspaceApi = {
         .from('workspace_users')
         .delete()
         .eq('workspace_id', workspaceId);
-    console.log('step 4 - delete workspace users:', usersError);
     if (usersError) throw usersError;
 
     const { error: wsError } = await supabase
         .from('workspaces')
         .delete()
         .eq('id', workspaceId);
-    console.log('step 5 - delete workspace:', wsError);
     if (wsError) throw wsError;
   },
 
