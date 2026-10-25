@@ -94,11 +94,11 @@ async function testWorkspaces() {
   const { data: workspaces, error: fetchError } = await supabase
     .from('workspaces')
     .select('*')
-    if (fetchError) {
-      console.error('Fetch Error:', fetchError)
-    } else {
-      console.log('All resources:', workspaces)
-    }
+  if (fetchError) {
+    console.error('Fetch Error:', fetchError)
+  } else {
+    console.log('All workspaces:', workspaces)
+  }
 }
 testWorkspaces()
 testUsers()
