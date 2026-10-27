@@ -23,9 +23,3 @@ export async function createWorkspace(name: string, description: string) {
     return data;
   }
 }
-/*
-(async () => {
-  const result = await createWorkspace('Sample', 'Garden');
-  console.log('Workspace added:', result);
-})();
-*/
