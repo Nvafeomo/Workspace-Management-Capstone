@@ -3,8 +3,8 @@ export class Resource{
     private name: string;
     private description: string;
     private quantity?: number | undefined; // Optional property to track quantity of items
-    private reqApprovers?: number | undefined; // Optional property to indicate if item requires approval for use
-    private numAvailable?: number | undefined; // Optional property to indicate if item is currently available for use
+    private reqApprovers?: number | undefined; // Optional number of approvals required before the item can be borrowed
+    private numAvailable?: number | undefined; // Optional count of units currently available (kept in sync with status)
     private status: 'AVAILABLE' | 'REQUESTED' | 'BORROWED'; // tracks the status of item
     constructor(id: string, name: string, description: string, quantity?: number, requiredApproval?: number, available?: boolean) {
         this.id = id;
