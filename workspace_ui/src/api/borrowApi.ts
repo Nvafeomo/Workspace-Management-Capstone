@@ -2,7 +2,7 @@
 
 import { BorrowRequest } from '../types';
 import { supabase } from '../supabaseClient';
-import { auditApi } from './auditApi'; // NEW: Import Audit API
+import { auditApi } from './auditApi';
 
 export const borrowApi = {
   //create borrow request function
@@ -34,7 +34,7 @@ export const borrowApi = {
         .update({ status: resourceStatus })
         .eq('id', resourceId);
 
-    // NEW: Log Action
+    // record this action in the workspace audit log
     const { data: wsLink } = await supabase.from('workspace_resource').select('workspace_id').eq('resource_id', resourceId).single();
     if (wsLink) {
       await auditApi.logAction(wsLink.workspace_id, userId, reqApprovers > 0 ? 'requested to borrow an item' : 'borrowed an item', `Resource ID: ${resourceId}`);
@@ -72,7 +72,7 @@ export const borrowApi = {
           .update({ status: 'AVAILABLE' })
           .eq('id', updated.resource_id);
 
-      // NEW: Log Action
+      // record this action in the workspace audit log
       const { data: { user } } = await supabase.auth.getUser();
       const { data: wsLink } = await supabase.from('workspace_resource').select('workspace_id').eq('resource_id', updated.resource_id).single();
       if (wsLink && user) await auditApi.logAction(wsLink.workspace_id, user.id, 'rejected a borrow request', `Request ID: ${id}`);
@@ -137,7 +137,7 @@ export const borrowApi = {
           .update({ status: 'BORROWED' })
           .eq('id', updated.resource_id);
 
-      // NEW: Log Action
+      // record this action in the workspace audit log
       const { data: wsLink } = await supabase.from('workspace_resource').select('workspace_id').eq('resource_id', updated.resource_id).single();
       if (wsLink) await auditApi.logAction(wsLink.workspace_id, user.id, 'fully approved a borrow request', `Request ID: ${id}`);
 
@@ -197,7 +197,7 @@ export const borrowApi = {
 
     if (resourceError) throw resourceError;
 
-    // NEW: Log Action (UPDATED TO INCLUDE NOTE)
+    // record the return in the workspace audit log, including the note if one was given
     const { data: { user } } = await supabase.auth.getUser();
     const { data: wsLink } = await supabase.from('workspace_resource').select('workspace_id').eq('resource_id', resourceId).single();
     if (wsLink && user) {
@@ -238,7 +238,7 @@ export const borrowApi = {
 
     if (resourceError) throw resourceError;
 
-    // NEW: Log Action
+    // record this action in the workspace audit log
     const { data: { user } } = await supabase.auth.getUser();
     const { data: wsLink } = await supabase.from('workspace_resource').select('workspace_id').eq('resource_id', resourceId).single();
     if (wsLink && user) {
@@ -246,6 +246,7 @@ export const borrowApi = {
     }
   },
 
+  // count how many approvals a borrow request has received so far
   getApprovalCount: async (borrowRequestId: string): Promise<number> => {
     const { count, error } = await supabase
         .from('approvals')
