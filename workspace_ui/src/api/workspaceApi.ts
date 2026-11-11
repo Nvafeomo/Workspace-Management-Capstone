@@ -5,26 +5,14 @@ import { auditApi } from './auditApi'; // NEW: Import Audit API
 
 export const workspaceApi = {
   /**
-   * Fetch workspaces the user belongs to (via workspace_users).
-   * New users see an empty list until they create or are added to workspaces.
+   * Fetch all workspaces, including each one's department (id, name, code).
    */
-  //updated to get all workspaces
   async getAll(): Promise<Workspace[]> {
     const { data, error } = await supabase
         .from('workspaces')
         .select('*, departments(id, name, code)');
 
     if (error) throw error;
-
-    // Extract workspace objects; Supabase returns { workspaces: {...} } per row
-    // (workspaces can be object or array depending on relation type)
-    /*
-    const workspaces = (data ?? []).flatMap((row: { workspaces: Workspace | Workspace[] | null }) => {
-      const ws = row.workspaces;
-      if (ws == null) return [];
-      return Array.isArray(ws) ? ws : [ws];
-    }).filter((ws): ws is Workspace => ws != null && 'id' in ws && 'name' in ws);
-    */
 
     // Ensure resourceCount for type compatibility (DB may not have it)
     return (data ?? []).map(ws => ({
