@@ -2,12 +2,12 @@
 
 import { Resource } from '../types';
 import { supabase } from '../supabaseClient';
-import { auditApi } from './auditApi'; // NEW: Import Audit API
+import { auditApi } from './auditApi';
 
 export const resourceApi = {
 
-  // NEW: Robust Delete Function
-  // Deletes all dependencies first to prevent foreign key errors
+  // Deletes a resource and everything that references it.
+  // Dependent rows are removed first to avoid foreign key errors.
   delete: async (id: string): Promise<void> => {
 
     //get status from database
@@ -24,7 +24,7 @@ export const resourceApi = {
       throw new Error(`Cannot delete a resource with status "${statusResult.data.status}". It must be returned first.`);
     }
 
-    // NEW: Grab workspace ID and user for logging before deleting links
+    // Look up the workspace and current user now, before the links are deleted, for the audit log
     const { data: wsLink } = await supabase.from('workspace_resource').select('workspace_id').eq('resource_id', id).single();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -61,7 +61,7 @@ export const resourceApi = {
 
     if (resError) throw resError;
 
-    // NEW: Log Action
+    // record this action in the workspace audit log
     if (wsLink && user) {
       await auditApi.logAction(wsLink.workspace_id, user.id, 'deleted a resource', `Resource ID: ${id}`);
     }
@@ -134,7 +134,7 @@ export const resourceApi = {
       throw linkError;
     }
 
-    // NEW: Log Action
+    // record this action in the workspace audit log
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await auditApi.logAction(workspaceId, user.id, 'added a new resource', `Resource: ${resource.name}`);
