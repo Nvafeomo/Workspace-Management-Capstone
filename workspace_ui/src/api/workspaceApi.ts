@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { Workspace, CreateWorkspaceInput } from '../types';
 import type { Role } from '../types';
-import { auditApi } from './auditApi'; // NEW: Import Audit API
+import { auditApi } from './auditApi';
 
 export const workspaceApi = {
   /**
@@ -61,7 +61,7 @@ export const workspaceApi = {
 
     if (linkError) throw linkError;
 
-    // NEW: Log Action
+    // Record this action in the workspace audit log
     await auditApi.logAction(created.id, userId, 'created the workspace');
 
     return { ...created, resourceCount: created.resourceCount ?? 0 };
@@ -159,7 +159,7 @@ export const workspaceApi = {
 
     if (error) throw error;
 
-    // NEW: Log Action
+    // Record this action in the workspace audit log
     const { data: { user } } = await supabase.auth.getUser();
     if (user) await auditApi.logAction(workspaceId, user.id, `${status.toLowerCase()} a user's join request`, `Target User ID: ${userId}`);
   },
@@ -211,7 +211,7 @@ export const workspaceApi = {
 
     if (error) throw error;
 
-    // NEW: Log Action
+    // Record this action in the workspace audit log
     const { data: { user } } = await supabase.auth.getUser();
     if (user) await auditApi.logAction(workspaceId, user.id, `${approve ? 'approved' : 'rejected'} an approver role request`, `Target User ID: ${userId}`);
   },
@@ -252,7 +252,7 @@ export const workspaceApi = {
 
     if (error) throw error;
 
-    // NEW: Log Action
+    // Record this action in the workspace audit log
     const { data: { user } } = await supabase.auth.getUser();
     if (user) await auditApi.logAction(workspaceId, user.id, `assigned a new Admin successor`, `New Admin ID: ${successorUserId}`);
   },
@@ -346,7 +346,7 @@ export const workspaceApi = {
 
     if (error) throw error;
 
-    // NEW: Log Action
+    // Record this action in the workspace audit log
     await auditApi.logAction(workspaceId, currentUserId, `changed a member's role to ${newRole}`, `Target User ID: ${targetUserId}`);
   },
 
@@ -389,7 +389,7 @@ export const workspaceApi = {
 
     if (error) throw error;
 
-    // NEW: Log Action
+    // Record this action in the workspace audit log
     await auditApi.logAction(workspaceId, userId, 'left the workspace');
   },
 
@@ -422,7 +422,7 @@ export const workspaceApi = {
 
     if (error) throw error;
 
-    // NEW: Log Action
+    // Record this action in the workspace audit log
     const { data: { user } } = await supabase.auth.getUser();
     if (user) await auditApi.logAction(workspaceId, user.id, `invited a user to the workspace`, `Invited: ${email} as ${role}`);
   },
