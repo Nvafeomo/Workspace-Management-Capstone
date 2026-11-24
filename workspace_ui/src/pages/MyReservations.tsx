@@ -58,9 +58,10 @@ export const MyReservations = () => {
     }
   };
 
-  const upcoming = reservations.filter(
-    (r) => ['PENDING', 'CONFIRMED'].includes(r.status) && new Date(r.end_time) > new Date()
-  );
+  // getByUser returns latest-first, which suits history but not what's coming up next.
+  const upcoming = reservations
+    .filter((r) => ['PENDING', 'CONFIRMED'].includes(r.status) && new Date(r.end_time) > new Date())
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
   const past = reservations.filter(
     (r) => !['PENDING', 'CONFIRMED'].includes(r.status) || new Date(r.end_time) <= new Date()
   );
