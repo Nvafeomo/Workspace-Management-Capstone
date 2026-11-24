@@ -63,13 +63,32 @@ export function WorkspaceReservations({ workspace, userId, canBook }: Props) {
   const handleBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.start || !form.end) return;
+
+    const start = new Date(form.start);
+    const end = new Date(form.end);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      alert('Please enter a valid start and end time.');
+      return;
+    }
+    if (end <= start) {
+      alert('End time must be after the start time.');
+      return;
+    }
+    const minMinutes = workspace.min_booking_minutes ?? 30;
+    const maxMinutes = workspace.max_booking_minutes ?? 480;
+    const durationMinutes = (end.getTime() - start.getTime()) / 60_000;
+    if (durationMinutes < minMinutes || durationMinutes > maxMinutes) {
+      alert(`Bookings for this space must be between ${minMinutes} and ${maxMinutes} minutes.`);
+      return;
+    }
+
     setBooking(true);
     try {
       await reservationApi.create(
         workspace.id,
         userId,
-        new Date(form.start).toISOString(),
-        new Date(form.end).toISOString(),
+        start.toISOString(),
+        end.toISOString(),
         form.purpose
       );
       setModalOpen(false);
