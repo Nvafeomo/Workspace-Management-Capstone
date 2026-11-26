@@ -127,27 +127,19 @@ export const WorkspacePage = () => {
     }
   };
 
-  // --- UPDATED: Handle Borrow Function ---
+  // Borrow a resource for the signed-in user; resources needing no approvals are borrowed immediately
   const handleQuickBorrow = async (resourceId: string) => {
     if (!user?.id) return;
     setBorrowingId(resourceId);
     try {
-      // 1. Find the resource to get the correct approval count
+      // Treat a missing approval count as 0 (no approvals required)
       const resourceToBorrow = resources.find(r => r.id === resourceId);
-
-      // Safety check: default to 0 if undefined.
-      // NOTE: Ensure this matches your database column name (reqApprovers vs reqapprovers)
       const approvalsNeeded = resourceToBorrow?.reqApprovers ?? 0;
 
-      // 2. Pass the approval count to the API so it knows whether to 'Approve' or 'Pend'
-      await borrowApi.createRequest(
-          resourceId,
-          user.id, // Debug User ID
-          approvalsNeeded
-      );
+      // The API approves the request immediately or leaves it pending based on the approval count
+      await borrowApi.createRequest(resourceId, user.id, approvalsNeeded);
 
-      // 3. Update UI
-      //if 0 approvals, it will change immediately to borrowed
+      // Mirror the new status locally: pending approval, or borrowed right away
       const newStatus = approvalsNeeded > 0 ? 'REQUESTED' : 'BORROWED';
 
       setResources(prev => prev.map(res =>
